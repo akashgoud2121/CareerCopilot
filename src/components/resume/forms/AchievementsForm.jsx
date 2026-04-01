@@ -306,7 +306,7 @@ function AchievementsForm({ value, setResumeData, onOpenAIModal }) {
                       <input
                         type="text"
                         value={item.title || ""}
-                        placeholder="Smart India Hackathon"
+                        placeholder="e.g., National Hackathon / Coding Contest"
                         onChange={(e) => {
                           updateAchievement(item.clientKey, "title", e.target.value);
                           setTouched(true);
@@ -328,7 +328,7 @@ function AchievementsForm({ value, setResumeData, onOpenAIModal }) {
                       <input
                         type="text"
                         value={item.organizerOrRank || ""}
-                        placeholder="National Level / 1st Place / Top 10"
+                        placeholder="e.g., 1st Place / Top 10 / National Level"
                         onChange={(e) => {
                           updateAchievement(
                             item.clientKey,

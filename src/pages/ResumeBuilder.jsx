@@ -52,6 +52,18 @@ function ResumeBuilder() {
   const [latestProjectedVersion, setLatestProjectedVersion] = useState(null);
   const [activeProjectionJobId, setActiveProjectionJobId] = useState(null);
   const [showValidationErrors, setShowValidationErrors] = useState(false);
+  const [isShaking, setIsShaking] = useState(false);
+  const [validationToast, setValidationToast] = useState("");
+  const formContainerRef = useRef(null);
+
+  const triggerValidationFeedback = (message) => {
+    setShowValidationErrors(true);
+    setIsShaking(true);
+    setValidationToast(message || "Please fill in all required fields before proceeding.");
+    formContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setTimeout(() => setIsShaking(false), 600);
+    setTimeout(() => setValidationToast(""), 4000);
+  };
 
   const allSections = useMemo(() => {
     return [
@@ -1103,12 +1115,11 @@ function ResumeBuilder() {
       for (let i = 0; i < index; i++) {
         const sectionToValidate = allSections[i]?.key;
         if (!validateSectionDataByKey(sectionToValidate)) {
-          setShowValidationErrors(true);
+          triggerValidationFeedback(`Please complete the "${allSections[i]?.label}" section first.`);
           
           if (i !== currentStep) {
             queueCurrentSectionBackgroundSave();
             setCurrentStep(i);
-            window.scrollTo({ top: 0, behavior: "auto" });
           }
           return;
         }
@@ -1116,7 +1127,7 @@ function ResumeBuilder() {
     } else if (index > currentStep) {
       // Jumping forward to a regular section: only block if current view is invalid
       if (!validateSectionDataByKey(currentSection?.key)) {
-        setShowValidationErrors(true);
+        triggerValidationFeedback(`Please complete the "${currentSection?.label}" section first.`);
         return;
       }
     }
@@ -1142,12 +1153,11 @@ function ResumeBuilder() {
       for (let i = 0; i < nextStep; i++) {
         const sectionToValidate = allSections[i]?.key;
         if (!validateSectionDataByKey(sectionToValidate)) {
-          setShowValidationErrors(true);
+          triggerValidationFeedback(`Please complete the "${allSections[i]?.label}" section first.`);
           
           if (i !== currentStep) {
             queueCurrentSectionBackgroundSave();
             setCurrentStep(i);
-            window.scrollTo({ top: 0, behavior: "auto" });
           }
           return;
         }
@@ -1155,7 +1165,7 @@ function ResumeBuilder() {
     } else {
       // Normal next step: only block if current view is invalid
       if (!validateSectionDataByKey(currentSection?.key)) {
-        setShowValidationErrors(true);
+        triggerValidationFeedback(`Please complete the "${currentSection?.label}" section first.`);
         return;
       }
     }
@@ -1544,7 +1554,15 @@ function ResumeBuilder() {
               </div>
             </div>
 
-            <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5 md:p-6 lg:p-7">
+            {validationToast && (
+              <div className="mb-4 animate-page-entry rounded-2xl border border-red-200 bg-red-50 px-5 py-4 shadow-sm">
+                <p className="text-sm font-semibold text-red-700">
+                  ⚠️ {validationToast}
+                </p>
+              </div>
+            )}
+
+            <div ref={formContainerRef} className={`rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5 md:p-6 lg:p-7 ${isShaking ? "animate-shake" : ""}`}>
               {currentSection?.key === "review" ? (
                 isReviewLoading ? (
                   <div className="flex min-h-[300px] items-center justify-center">

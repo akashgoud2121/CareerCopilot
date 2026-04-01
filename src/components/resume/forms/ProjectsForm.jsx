@@ -327,7 +327,7 @@ function ProjectsForm({ value, setResumeData, onOpenAIModal, showValidationError
                       <input
                         type="text"
                         value={project.title || ""}
-                        placeholder="Career Copilot Resume Builder"
+                        placeholder="e.g., Your Project Title"
                         onChange={(e) => {
                           updateProject(project.clientKey, "title", e.target.value);
                           setTouched(true);
@@ -370,7 +370,7 @@ function ProjectsForm({ value, setResumeData, onOpenAIModal, showValidationError
                       <input
                         type="text"
                         value={project.organization || ""}
-                        placeholder="College / Company / Self"
+                        placeholder="e.g., College / Company / Personal"
                         onChange={(e) => {
                           updateProject(project.clientKey, "organization", e.target.value);
                           setTouched(true);

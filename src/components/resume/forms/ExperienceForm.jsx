@@ -311,7 +311,7 @@ function ExperienceForm({ value, setResumeData, onOpenAIModal, showValidationErr
                           updateExperience(item.clientKey, "role", e.target.value);
                           setTouched(true);
                         }}
-                        placeholder="Software Engineer Intern"
+                        placeholder="e.g., Software Engineer Intern"
                         className={getInputClassName(!!getError(index, "role"))}
                       />
                     </FieldWrapper>
@@ -329,7 +329,7 @@ function ExperienceForm({ value, setResumeData, onOpenAIModal, showValidationErr
                           updateExperience(item.clientKey, "company", e.target.value);
                           setTouched(true);
                         }}
-                        placeholder="ABC Technologies"
+                        placeholder="e.g., Company / Organization name"
                         className={getInputClassName(!!getError(index, "company"))}
                       />
                     </FieldWrapper>
@@ -371,7 +371,7 @@ function ExperienceForm({ value, setResumeData, onOpenAIModal, showValidationErr
                           updateExperience(item.clientKey, "location", e.target.value);
                           setTouched(true);
                         }}
-                        placeholder="Hyderabad, India"
+                        placeholder="e.g., City, State / Remote"
                         className={getInputClassName(
                           !!getError(index, "location")
                         )}

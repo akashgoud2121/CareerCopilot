@@ -30,7 +30,7 @@ function ResumeSectionRenderer({
     contact: (
       <ContactForm
         value={resumeData.contact}
-        setResumeData={setResumeData}
+        {...commonProps}
       />
     ),
 
@@ -44,14 +44,14 @@ function ResumeSectionRenderer({
     skills: (
       <SkillsForm
         value={resumeData.skills}
-        setResumeData={setResumeData}
+        {...commonProps}
       />
     ),
 
     education: (
       <EducationForm
         value={resumeData.education}
-        setResumeData={setResumeData}
+        {...commonProps}
       />
     ),
 

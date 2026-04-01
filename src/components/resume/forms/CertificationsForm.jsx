@@ -266,7 +266,7 @@ function CertificationsForm({ value, setResumeData, onOpenAIModal }) {
                       <input
                         type="text"
                         value={item.name || ""}
-                        placeholder="AWS Cloud Practitioner"
+                        placeholder="e.g., Cloud Practitioner / Full-Stack Certificate"
                         onChange={(e) => {
                           updateCertification(item.clientKey, "name", e.target.value);
                           setTouched(true);
@@ -286,7 +286,7 @@ function CertificationsForm({ value, setResumeData, onOpenAIModal }) {
                       <input
                         type="text"
                         value={item.issuingBody || ""}
-                        placeholder="Amazon Web Services"
+                        placeholder="e.g., Issuing organization name"
                         onChange={(e) => {
                           updateCertification(item.clientKey, "issuingBody", e.target.value);
                           setTouched(true);
@@ -365,7 +365,7 @@ function CertificationsForm({ value, setResumeData, onOpenAIModal }) {
                       <input
                         type="text"
                         value={item.credentialId || ""}
-                        placeholder="ABC-123-XYZ"
+                        placeholder="e.g., CERT-2024-XXXX"
                         onChange={(e) => {
                           updateCertification(item.clientKey, "credentialId", e.target.value);
                           setTouched(true);

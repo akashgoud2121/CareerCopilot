@@ -300,7 +300,7 @@ function EducationForm({ value, setResumeData, showValidationErrors = false }) {
                       <input
                         type="text"
                         value={item.institution || ""}
-                        placeholder="Malla Reddy College Of Engineering And Technology"
+                        placeholder="e.g., State University of Technology"
                         onChange={(e) => {
                           updateEducationItem(item.clientKey, "institution", e.target.value);
                           setTouched(true);
@@ -320,7 +320,7 @@ function EducationForm({ value, setResumeData, showValidationErrors = false }) {
                       <input
                         type="text"
                         value={item.degreeMajor || ""}
-                        placeholder="Btech in Computer Science"
+                        placeholder="e.g., B.Tech in Computer Science"
                         onChange={(e) => {
                           updateEducationItem(item.clientKey, "degreeMajor", e.target.value);
                           setTouched(true);
@@ -339,7 +339,7 @@ function EducationForm({ value, setResumeData, showValidationErrors = false }) {
                       <input
                         type="text"
                         value={item.cgpaOrPercentage || ""}
-                        placeholder="8.57 or 92%"
+                        placeholder="e.g., 8.5 or 92%"
                         onChange={(e) => {
                           updateEducationItem(
                             item.clientKey,
@@ -487,7 +487,7 @@ function EducationForm({ value, setResumeData, showValidationErrors = false }) {
                       <input
                         type="text"
                         value={item.cityState || ""}
-                        placeholder="Hyderabad"
+                        placeholder="e.g., City, State"
                         onChange={(e) => {
                           updateEducationItem(item.clientKey, "cityState", e.target.value);
                           setTouched(true);

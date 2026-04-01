@@ -261,7 +261,7 @@ function ContactForm({ value, setResumeData, showValidationErrors = false }) {
               required
               icon={<User size={16} />}
               value={contactData.fullName}
-              placeholder="John Doe"
+              placeholder="e.g., Alex Johnson"
               error={touched.fullName || showValidationErrors ? errors.fullName : ""}
               onChange={(e) => updateField("fullName", e.target.value)}
               onBlur={() => markTouched("fullName")}
@@ -273,7 +273,7 @@ function ContactForm({ value, setResumeData, showValidationErrors = false }) {
               icon={<Mail size={16} />}
               type="email"
               value={contactData.email}
-              placeholder="johndoe@gmail.com"
+              placeholder="e.g., yourname@email.com"
               error={touched.email || showValidationErrors ? errors.email : ""}
               onChange={(e) => updateField("email", e.target.value)}
               onBlur={() => markTouched("email")}
