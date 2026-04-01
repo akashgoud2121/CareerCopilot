@@ -528,7 +528,7 @@ export default function ResumePreview({
             ref={wrapperRef}
             className="resume-print-root overflow-x-auto overflow-y-hidden rounded-2xl bg-slate-100/80 p-3 sm:p-5"
           >
-            <div className="flex min-w-max justify-center">
+            <div className="flex justify-center">
               <div
                 style={{
                   width: isPrinting ? `${PAPER_WIDTH}px` : `${scaledPreviewWidth}px`,
