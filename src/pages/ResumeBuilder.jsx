@@ -721,6 +721,17 @@ function ResumeBuilder() {
 
     setNewSectionName("");
     setShowAddSectionInput(false);
+
+    // Auto-navigate to the newly created section which will be at RESUME_SECTIONS.length + current customSections.length
+    queueCurrentSectionBackgroundSave();
+    setShowValidationErrors(false);
+    
+    // We use setTimeout to allow state (like customSections) to update before changing the step, 
+    // ensuring the renderer matches the new allSections array correctly.
+    setTimeout(() => {
+      setCurrentStep(RESUME_SECTIONS.length + customSections.length);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }, 0);
   };
 
   const handleRemoveCustomSection = (sectionKey) => {
@@ -1023,6 +1034,45 @@ function ResumeBuilder() {
       return !!text && text.length >= 40;
     }
 
+    if (key === "achievements") {
+      const achievements = Array.isArray(resumeData.achievements) ? resumeData.achievements : [];
+      const validRows = achievements.filter(
+        (item) =>
+          item.category?.trim() &&
+          item.title?.trim() &&
+          item.organizerOrRank?.trim() &&
+          item.month &&
+          item.year &&
+          item.description?.trim() &&
+          item.description.trim().length >= 20
+      );
+      return validRows.length > 0;
+    }
+
+    if (key === "certifications") {
+      const certifications = Array.isArray(resumeData.certifications) ? resumeData.certifications : [];
+      const validRows = certifications.filter(
+        (item) =>
+          item.name?.trim() &&
+          item.issuingBody?.trim() &&
+          item.issuedMonth &&
+          item.issuedYear &&
+          item.description?.trim()
+      );
+      return validRows.length > 0;
+    }
+
+    if (key.startsWith("custom_")) {
+      const customData = Array.isArray(resumeData[key]) ? resumeData[key] : [];
+      const validRows = customData.filter(
+        (item) =>
+          item.title?.trim() &&
+          item.description?.trim() &&
+          item.description.trim().length >= 10
+      );
+      return validRows.length > 0;
+    }
+
     return true;
   };
 
@@ -1046,9 +1096,11 @@ function ResumeBuilder() {
   const handleGoToSection = (index) => {
     if (index === currentStep) return;
 
-    if (index > currentStep) {
-      // Validate all intermediate steps up to the index the user clicked
-      for (let i = currentStep; i < index; i++) {
+    const isTargetReview = allSections[index]?.key === "review";
+
+    if (isTargetReview) {
+      // Final sweep: ensure all sections are valid before going to Review
+      for (let i = 0; i < index; i++) {
         const sectionToValidate = allSections[i]?.key;
         if (!validateSectionDataByKey(sectionToValidate)) {
           setShowValidationErrors(true);
@@ -1060,6 +1112,12 @@ function ResumeBuilder() {
           }
           return;
         }
+      }
+    } else if (index > currentStep) {
+      // Jumping forward to a regular section: only block if current view is invalid
+      if (!validateSectionDataByKey(currentSection?.key)) {
+        setShowValidationErrors(true);
+        return;
       }
     }
 
@@ -1076,14 +1134,35 @@ function ResumeBuilder() {
   };
 
   const goToNext = () => {
-    if (!validateSectionDataByKey(currentSection?.key)) {
-      setShowValidationErrors(true);
-      return;
+    const nextStep = Math.min(currentStep + 1, allSections.length - 1);
+    const isTargetReview = allSections[nextStep]?.key === "review";
+
+    if (isTargetReview) {
+      // Final sweep: ensure all sections are valid before going to Review
+      for (let i = 0; i < nextStep; i++) {
+        const sectionToValidate = allSections[i]?.key;
+        if (!validateSectionDataByKey(sectionToValidate)) {
+          setShowValidationErrors(true);
+          
+          if (i !== currentStep) {
+            queueCurrentSectionBackgroundSave();
+            setCurrentStep(i);
+            window.scrollTo({ top: 0, behavior: "auto" });
+          }
+          return;
+        }
+      }
+    } else {
+      // Normal next step: only block if current view is invalid
+      if (!validateSectionDataByKey(currentSection?.key)) {
+        setShowValidationErrors(true);
+        return;
+      }
     }
 
     setShowValidationErrors(false);
     queueCurrentSectionBackgroundSave();
-    setCurrentStep((prev) => Math.min(prev + 1, allSections.length - 1));
+    setCurrentStep(nextStep);
     window.scrollTo({ top: 0, behavior: "auto" });
   };
 
@@ -1475,7 +1554,14 @@ function ResumeBuilder() {
                   </div>
                 ) : (
                   <ResumePreview
-                    resumeData={resumeData}
+                    resumeData={{
+                      ...resumeData,
+                      customSections: customSections.map((cs) => ({
+                        key: cs.key,
+                        label: cs.label,
+                        content: resumeData[cs.key] || [],
+                      })),
+                    }}
                     resumeId={resumeId}
                     projectionStatus={projectionStatus}
                     projectionMessage={projectionMessage}

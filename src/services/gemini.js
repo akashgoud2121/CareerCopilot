@@ -329,8 +329,49 @@ Output requirements:
 `.trim();
 }
 
+function buildCustomSectionPrompt(formData = {}, resumeData = {}, label = "") {
+  const skillsText = getSkillsText(resumeData?.skills || []);
+  const summaryText = resumeData?.summary?.text || "";
+
+  return `
+You are an expert resume writer.
+
+Write strong ATS-friendly resume content for a custom section titled "${label}".
+
+Candidate context:
+- Overall Skills: ${skillsText || "Not provided"}
+- Existing Summary: ${summaryText || "Not provided"}
+
+Entry details:
+- Title: ${formData.title || "Not provided"}
+- Subtitle / Context: ${formData.subtitle || "Not provided"}
+- Description Input: ${formData.description || "Not provided"}
+- Tone: ${formData.tone || "Professional"}
+
+Important rules:
+- Write for a resume, not for a report or personal blog.
+- Do not use first person words like I, me, my.
+- Do not invent fake achievements, metrics, or factual claims.
+- Keep it concise, polished, and impactful.
+- Focus on relevance, contribution, and clarity.
+- Return only the final entry description text.
+
+Output requirements:
+- Write 1 to 2 concise resume-ready bullet-style lines in plain text.
+- Keep it ATS-friendly and sharp.
+`.trim();
+}
+
 function buildResumePrompt(sectionKey, userData = {}, sectionFormData = {}) {
   const normalizedSectionKey = (sectionKey || "").toLowerCase();
+
+  if (normalizedSectionKey.startsWith("custom_")) {
+    return buildCustomSectionPrompt(
+      sectionFormData,
+      userData,
+      sectionFormData.label || sectionKey.replace("custom_", "").replace(/_/g, " ")
+    );
+  }
 
   switch (normalizedSectionKey) {
     case "summary":

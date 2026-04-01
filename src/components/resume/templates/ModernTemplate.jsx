@@ -43,9 +43,13 @@ const extractBullets = (value = "") => {
   const raw = String(value || "").replace(/\r/g, "").trim();
   if (!raw) return [];
 
+  // Only treat content as a bullet list if it contains actual bullet markers
+  const hasBulletMarkers = /[•●▪◦]|^\s*[-*]\s+/m.test(raw);
+  if (!hasBulletMarkers) return [];
+
   return raw
-    .split(/\n+|•|●|▪|◦|^\s*[-*]\s+/gm)
-    .map((item) => cleanInlineText(item))
+    .split(/\n+/)
+    .map((line) => cleanInlineText(line.replace(/^[•●▪◦\-*]\s*/, "")))
     .filter(Boolean);
 };
 
@@ -264,8 +268,8 @@ const BulletBlock = ({ bullets, fitConfig }) => {
   return (
     <ul
       style={{
-        margin: "4px 0 0 0",
-        paddingLeft: "18px",
+        margin: "6px 0 0 -16px",
+        paddingLeft: "16px",
         fontSize: `${fitConfig.bodyFont}px`,
         lineHeight: fitConfig.lineHeight,
         color: "#334155",
@@ -316,7 +320,8 @@ const TimelineItem = ({
     className="break-inside-avoid"
     style={{
       position: "relative",
-      paddingLeft: "16px",
+      paddingLeft: "22px",
+      paddingBottom: `${fitConfig.itemGap + 4}px`,
       borderLeft: "2px solid #e2e8f0",
     }}
   >
@@ -324,7 +329,7 @@ const TimelineItem = ({
       style={{
         position: "absolute",
         left: "-5px",
-        top: "5px",
+        top: "6px",
         width: "8px",
         height: "8px",
         borderRadius: "999px",
@@ -399,7 +404,7 @@ const ExperienceSection = ({ items, fitConfig }) => {
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: `${fitConfig.itemGap}px`,
+          paddingLeft: "6px",
         }}
       >
         {items.map((item, idx) => {
@@ -753,6 +758,94 @@ const CompactListSection = ({ title, items, fitConfig, mode }) => {
   );
 };
 
+const CustomDynamicSection = ({ title, items, fitConfig }) => {
+  if (!items || !items.length) return null;
+
+  return (
+    <section>
+      <SectionHeader title={title} fitConfig={fitConfig} />
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: `${fitConfig.itemGap}px`,
+        }}
+      >
+        {items.map((item, idx) => {
+          const entryTitle = cleanInlineText(item?.title);
+          const subtitle = cleanInlineText(item?.subtitle);
+          const paragraph = normalizeParagraph(item?.description);
+          const bullets = extractBullets(item?.description);
+
+          const dateText = buildDateRange({
+            startMonth: item?.month,
+            startYear: item?.year,
+          });
+
+          return (
+            <div key={idx} className="break-inside-avoid">
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                  gap: "12px",
+                  marginBottom: "3px",
+                }}
+              >
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div
+                    style={{
+                      fontSize: `${fitConfig.bodyFont + 0.4}px`,
+                      fontWeight: 700,
+                      color: "#0f172a",
+                      lineHeight: 1.15,
+                    }}
+                  >
+                    {entryTitle}
+                  </div>
+                  {subtitle && (
+                    <div
+                      style={{
+                        marginTop: "2px",
+                        fontSize: `${fitConfig.smallFont}px`,
+                        color: "var(--color-secondary)",
+                        lineHeight: 1.25,
+                      }}
+                    >
+                      {subtitle}
+                    </div>
+                  )}
+                </div>
+
+                {dateText && (
+                  <div
+                    style={{
+                      flexShrink: 0,
+                      whiteSpace: "nowrap",
+                      fontSize: `${fitConfig.smallFont}px`,
+                      fontWeight: 700,
+                      color: "#475569",
+                    }}
+                  >
+                    {dateText}
+                  </div>
+                )}
+              </div>
+
+              {bullets.length > 0 ? (
+                <BulletBlock bullets={bullets} fitConfig={fitConfig} />
+              ) : (
+                <ParagraphBlock text={paragraph} fitConfig={fitConfig} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+};
+
 const ModernTemplate = ({
   resumeData,
   fitConfig = {
@@ -876,6 +969,15 @@ const ModernTemplate = ({
             <SummarySection text={summaryText} fitConfig={fitConfig} />
             <ExperienceSection items={visibleExperience} fitConfig={fitConfig} />
             <ProjectsSection items={visibleProjects} fitConfig={fitConfig} />
+            {Array.isArray(resumeData?.customSections) &&
+              resumeData.customSections.map((cs) => (
+                <CustomDynamicSection
+                  key={cs.key}
+                  title={cs.label}
+                  items={cs.content}
+                  fitConfig={fitConfig}
+                />
+              ))}
           </div>
 
           <div

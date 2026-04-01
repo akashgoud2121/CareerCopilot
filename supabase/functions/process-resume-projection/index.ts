@@ -7,7 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const json = (data: unknown, status = 200) =>
+const json = (data: any, status = 200) =>
   new Response(JSON.stringify(data), {
     status,
     headers: {
@@ -344,7 +344,7 @@ const buildReadModelFromRows = ({
   };
 };
 
-const loadResumeRows = async (admin: ReturnType<typeof createClient>, resumeId: number) => {
+const loadResumeRows = async (admin: any, resumeId: number) => {
   const [
     { data: resumeRow, error: resumeError },
     { data: contactRow, error: contactError },
@@ -449,8 +449,8 @@ const loadResumeRows = async (admin: ReturnType<typeof createClient>, resumeId: 
 };
 
 const claimQueuedJob = async (
-  admin: ReturnType<typeof createClient>,
-  job: Record<string, unknown>
+  admin: any,
+  job: Record<string, any>
 ) => {
   const id = Number(job.id);
   const attempts = Number(job.attempts ?? 0);
@@ -474,7 +474,7 @@ const claimQueuedJob = async (
 };
 
 const getNextReadModelVersion = async (
-  admin: ReturnType<typeof createClient>,
+  admin: any,
   resumeId: number
 ) => {
   const { data, error } = await admin
@@ -494,7 +494,7 @@ const getNextReadModelVersion = async (
 };
 
 const markJobCompleted = async (
-  admin: ReturnType<typeof createClient>,
+  admin: any,
   jobId: number,
   projectedVersion: number
 ) => {
@@ -517,7 +517,7 @@ const markJobCompleted = async (
 };
 
 const markJobFailed = async (
-  admin: ReturnType<typeof createClient>,
+  admin: any,
   jobId: number,
   message: string
 ) => {
@@ -567,7 +567,7 @@ serve(async (req) => {
     const results: Array<Record<string, unknown>> = [];
 
     for (const queuedJob of getArray(queuedJobs)) {
-      const claimedJob = await claimQueuedJob(admin, queuedJob);
+      const claimedJob = await claimQueuedJob(admin, queuedJob as any);
       if (!claimedJob) continue;
 
       try {

@@ -6,6 +6,7 @@ import ProjectsForm from "./forms/ProjectsForm";
 import CertificationsForm from "./forms/CertificationsForm";
 import AchievementsForm from "./forms/AchievementsForm";
 import ExperienceForm from "./forms/ExperienceForm";
+import CustomSectionForm from "./forms/CustomSectionForm";
 
 function ResumeSectionRenderer({
   currentSection,
@@ -85,6 +86,17 @@ function ResumeSectionRenderer({
 
   if (sectionMap[sectionKey]) {
     return sectionMap[sectionKey];
+  }
+
+  if (currentSection.type === "custom") {
+    return (
+      <CustomSectionForm
+        sectionKey={sectionKey}
+        label={currentSection.label}
+        value={resumeData[sectionKey]}
+        {...commonProps}
+      />
+    );
   }
 
   return (

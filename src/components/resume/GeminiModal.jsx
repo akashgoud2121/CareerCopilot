@@ -37,6 +37,14 @@ const ACHIEVEMENT_TONE_OPTIONS = [
   "Confident",
 ];
 
+const CUSTOM_TONE_OPTIONS = [
+  "Professional",
+  "Technical",
+  "Impact-focused",
+  "Creative",
+  "Concise",
+];
+
 function normalizeListToText(value) {
   if (Array.isArray(value)) {
     return value.filter(Boolean).join(", ");
@@ -206,6 +214,18 @@ function getInitialAchievementForm(userData = {}, aiContext = null) {
   };
 }
 
+function getInitialCustomForm(userData = {}, aiContext = null) {
+  const seed = getContextSeed(aiContext);
+  const targetCustom = getTargetItem(aiContext);
+
+  return {
+    title: seed.title || targetCustom?.title || "",
+    subtitle: seed.subtitle || targetCustom?.subtitle || "",
+    description: seed.description || targetCustom?.description || "",
+    tone: seed.tone || targetCustom?.tone || "Professional",
+  };
+}
+
 function getSectionBadgeLabel(sectionKey) {
   switch (sectionKey) {
     case "summary":
@@ -258,12 +278,16 @@ function GeminiModal({
   const [achievementForm, setAchievementForm] = useState(
     getInitialAchievementForm(userData, aiContext)
   );
+  const [customForm, setCustomForm] = useState(
+    getInitialCustomForm(userData, aiContext)
+  );
 
   const isSummarySection = sectionKey === "summary";
   const isProjectsSection = sectionKey === "projects";
   const isExperienceSection = sectionKey === "experience";
   const isCertificationsSection = sectionKey === "certifications";
   const isAchievementsSection = sectionKey === "achievements";
+  const isCustomSection = sectionKey?.startsWith("custom_");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -288,6 +312,7 @@ function GeminiModal({
     setExperienceForm(getInitialExperienceForm(userData, aiContext));
     setCertificationForm(getInitialCertificationForm(userData, aiContext));
     setAchievementForm(getInitialAchievementForm(userData, aiContext));
+    setCustomForm(getInitialCustomForm(userData, aiContext));
   }, [isOpen, sectionKey, userData, aiContext]);
 
   const summaryValidation = useMemo(() => {
@@ -341,6 +366,13 @@ function GeminiModal({
     return "";
   }, [isAchievementsSection, achievementForm]);
 
+  const customValidation = useMemo(() => {
+    if (!isCustomSection) return "";
+    if (!customForm.title.trim()) return "Title is required.";
+    if (!customForm.description.trim()) return "Description input is required.";
+    return "";
+  }, [isCustomSection, customForm]);
+
   if (!isOpen) return null;
 
   const handleSummaryFieldChange = (field, value) => {
@@ -378,6 +410,13 @@ function GeminiModal({
     }));
   };
 
+  const handleCustomFieldChange = (field, value) => {
+    setCustomForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
   const handleGenerate = async () => {
     try {
       if (isSummarySection && summaryValidation) {
@@ -405,6 +444,11 @@ function GeminiModal({
         return;
       }
 
+      if (isCustomSection && customValidation) {
+        setErrorMessage(customValidation);
+        return;
+      }
+
       setIsGenerating(true);
       setErrorMessage("");
       setGeneratedContent("");
@@ -417,6 +461,7 @@ function GeminiModal({
       if (isExperienceSection) sectionFormData = experienceForm;
       if (isCertificationsSection) sectionFormData = certificationForm;
       if (isAchievementsSection) sectionFormData = achievementForm;
+      if (isCustomSection) sectionFormData = customForm;
 
       const text = await generateResumeSection(
         sectionKey,
@@ -955,9 +1000,65 @@ function GeminiModal({
                     />
                   </CompactField>
                 </div>
+              ) : isCustomSection ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <CompactField label="Title" required>
+                      <input
+                        type="text"
+                        value={customForm.title}
+                        onChange={(e) =>
+                          handleCustomFieldChange("title", e.target.value)
+                        }
+                        placeholder="e.g. Research Assistant"
+                        className={inputClassName()}
+                      />
+                    </CompactField>
+
+                    <CompactField label="Subtitle / Context">
+                      <input
+                        type="text"
+                        value={customForm.subtitle}
+                        onChange={(e) =>
+                          handleCustomFieldChange("subtitle", e.target.value)
+                        }
+                        placeholder="e.g. Remote / ABC University"
+                        className={inputClassName()}
+                      />
+                    </CompactField>
+                  </div>
+
+                  <CompactField label="Tone">
+                    <select
+                      value={customForm.tone}
+                      onChange={(e) =>
+                        handleCustomFieldChange("tone", e.target.value)
+                      }
+                      className={inputClassName()}
+                    >
+                      {CUSTOM_TONE_OPTIONS.map((tone) => (
+                        <option key={tone} value={tone}>
+                          {tone}
+                        </option>
+                      ))}
+                    </select>
+                  </CompactField>
+
+                  <CompactField label="Description Input" required>
+                    <textarea
+                      rows={5}
+                      value={customForm.description}
+                      onChange={(e) =>
+                        handleCustomFieldChange("description", e.target.value)
+                      }
+                      placeholder="What should the AI focus on for this entry?"
+                      className={textareaClassName()}
+                    />
+                  </CompactField>
+                </div>
               ) : (
                 <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-500">
-                  Section form will be added next.
+                  Section form will be added soon.
                 </div>
               )}
             </div>

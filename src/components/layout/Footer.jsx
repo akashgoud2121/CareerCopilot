@@ -9,14 +9,14 @@ function Footer() {
       <div className="mx-auto max-w-7xl px-6 py-12 md:px-12 lg:px-20">
         <div className="flex flex-col gap-10 md:flex-row md:items-start md:justify-between">
           <div className="max-w-sm">
-            <div className="flex items-center gap-0.5">
+            <div className="flex items-center gap-0">
               <img
                 src={Logo}
                 alt="Career Copilot logo"
-                className="h-12 w-12 object-contain"
+                className="h-9 w-9 object-contain md:h-12 md:w-12"
               />
 
-              <span className="-ml-1 text-2xl font-bold tracking-[-0.03em] text-[var(--color-primary)]">
+              <span className="-ml-0.5 text-xl font-bold tracking-[-0.03em] text-[var(--color-primary)] md:text-2xl">
                 areer Copilot
               </span>
             </div>

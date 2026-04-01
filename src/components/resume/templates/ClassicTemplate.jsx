@@ -43,9 +43,13 @@ const extractBullets = (value = "") => {
   const raw = String(value || "").replace(/\r/g, "").trim();
   if (!raw) return [];
 
+  // Only treat content as a bullet list if it contains actual bullet markers
+  const hasBulletMarkers = /[•●▪◦]|^\s*[-*]\s+/m.test(raw);
+  if (!hasBulletMarkers) return [];
+
   return raw
-    .split(/\n+|•|●|▪|◦|^\s*[-*]\s+/gm)
-    .map((item) => cleanInlineText(item))
+    .split(/\n+/)
+    .map((line) => cleanInlineText(line.replace(/^[•●▪◦\-*]\s*/, "")))
     .filter(Boolean);
 };
 
@@ -647,6 +651,51 @@ const CompactListSection = ({ title, items, fitConfig, mode }) => {
   );
 };
 
+const CustomDynamicSection = ({ title, items, fitConfig }) => {
+  if (!items || !items.length) return null;
+
+  return (
+    <section>
+      <SectionHeader title={title} fitConfig={fitConfig} />
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: `${fitConfig.itemGap}px`,
+        }}
+      >
+        {items.map((item, index) => {
+          const entryTitle = cleanInlineText(item?.title);
+          const subtitle = cleanInlineText(item?.subtitle);
+          const paragraph = normalizeParagraph(item?.description);
+          const bullets = extractBullets(item?.description);
+
+          const dateText = buildDateRange({
+            startMonth: item?.month,
+            startYear: item?.year,
+          });
+
+          return (
+            <div key={index} className="break-inside-avoid">
+              <EntryHeader
+                title={entryTitle}
+                subtitle={subtitle}
+                dateText={dateText}
+                fitConfig={fitConfig}
+              />
+              {bullets.length > 0 ? (
+                <BulletBlock bullets={bullets} fitConfig={fitConfig} />
+              ) : (
+                <ParagraphBlock text={paragraph} fitConfig={fitConfig} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+};
+
 const ClassicTemplate = ({
   resumeData,
   fitConfig = {
@@ -766,6 +815,15 @@ const ClassicTemplate = ({
           fitConfig={fitConfig}
           mode="achievements"
         />
+        {Array.isArray(resumeData?.customSections) &&
+          resumeData.customSections.map((cs) => (
+            <CustomDynamicSection
+              key={cs.key}
+              title={cs.label}
+              items={cs.content}
+              fitConfig={fitConfig}
+            />
+          ))}
       </div>
     </div>
   );

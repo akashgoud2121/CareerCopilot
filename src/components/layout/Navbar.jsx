@@ -43,14 +43,14 @@ function Navbar() {
             </button>
           )}
 
-          <Link to="/" className="flex items-center gap-0.5 select-none">
+        <Link to="/" className="flex items-center gap-0 select-none">
           <img
             src={Logo}
             alt="Career Copilot logo"
-            className="h-12 w-12 object-contain md:h-14 md:w-14"
+            className="h-9 w-9 object-contain md:h-14 md:w-14"
           />
 
-          <span className="-ml-1 text-[1.55rem] font-bold tracking-[-0.03em] text-[var(--color-primary)] md:text-[1.75rem]">
+          <span className="-ml-0.5 text-[1.35rem] font-bold tracking-[-0.03em] text-[var(--color-primary)] md:text-[1.75rem]">
             areer Copilot
           </span>
         </Link>

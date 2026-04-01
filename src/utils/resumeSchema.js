@@ -178,6 +178,15 @@ export const createEmptyExperienceItem = () => ({
   description: "",
 });
 
+export const createEmptyCustomSectionItem = () => ({
+  clientKey: makeClientKey(),
+  title: "",
+  subtitle: "",
+  month: "",
+  year: "",
+  description: "",
+});
+
 export const createEmptyResumeData = () => ({
   contact: createEmptyContactData(),
 
