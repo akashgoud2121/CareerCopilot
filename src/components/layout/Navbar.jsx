@@ -43,15 +43,14 @@ function Navbar() {
             </button>
           )}
 
-        <Link to="/" className="flex items-center gap-2 select-none">
+        <Link to="/" className="flex items-center select-none">
           <img
             src={Logo}
             alt="Career Copilot logo"
-            className="h-9 w-9 object-contain md:h-12 md:w-12"
+            className="h-10 w-10 object-contain md:h-14 md:w-14"
           />
-
-          <span className="text-[1.25rem] font-bold tracking-[-0.02em] text-[var(--color-primary)] md:text-[1.6rem]">
-            Career Copilot
+          <span className="-ml-1 text-[1.35rem] font-bold tracking-[-0.03em] text-[var(--color-primary)] leading-none md:text-[1.75rem]">
+            areer Copilot
           </span>
         </Link>
         </div>
@@ -150,13 +149,13 @@ function Navbar() {
             <>
               <Link
                 to="/login"
-                className="rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+                className="hidden rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] md:inline-flex"
               >
                 Login
               </Link>
               <Link
                 to="/signup"
-                className="rounded-xl bg-[var(--color-primary)] px-6 py-3 text-sm font-semibold text-white shadow-[0_10px_25px_rgba(53,0,139,0.18)] transition hover:-translate-y-0.5 hover:opacity-95"
+                className="hidden rounded-xl bg-[var(--color-primary)] px-6 py-3 text-sm font-semibold text-white shadow-[0_10px_25px_rgba(53,0,139,0.18)] transition hover:-translate-y-0.5 hover:opacity-95 md:inline-flex"
               >
                 Signup
               </Link>
@@ -198,6 +197,22 @@ function Navbar() {
             >
               AI Tools
             </a>
+            <div className="mt-2 flex flex-col gap-3 border-t border-slate-100 pt-4">
+              <Link
+                to="/login"
+                onClick={() => setShowMobileMenu(false)}
+                className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-center text-sm font-semibold text-slate-700 transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+              >
+                Login
+              </Link>
+              <Link
+                to="/signup"
+                onClick={() => setShowMobileMenu(false)}
+                className="rounded-xl bg-[var(--color-primary)] px-6 py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
+              >
+                Signup
+              </Link>
+            </div>
           </nav>
         </div>
       )}
