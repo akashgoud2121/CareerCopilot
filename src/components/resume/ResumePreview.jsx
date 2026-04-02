@@ -340,24 +340,79 @@ export default function ResumePreview({
     try {
       setIsPreparingPdf(true);
 
-      // Use the live data directly instead of fetching from the database.
-      // This ensures the PDF exactly matches the preview the user sees.
-      setPreviewData(safeResumeData);
+      // 1. Create a hidden iframe
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "fixed";
+      iframe.style.right = "100%";
+      iframe.style.bottom = "100%";
+      iframe.style.width = "210mm";
+      iframe.style.height = "297mm";
+      iframe.style.border = "none";
+      iframe.style.visibility = "hidden";
+      document.body.appendChild(iframe);
 
-      // Mobile engines need more time to settle the layout after transform resets.
-      // 6 frames (~100ms) is the "sweet spot" for most mobile browsers.
-      await waitForFrames(6);
-      document.body.classList.add("printing-resume");
-      setIsPrinting(true);
+      const iframeDoc = iframe.contentWindow.document;
 
-      await waitForFrames(4);
-      window.print();
+      // 2. Clone all styles from the main document
+      let styleString = "";
+      Array.from(document.styleSheets).forEach((sheet) => {
+        try {
+          const rules = Array.from(sheet.cssRules || []).map(rule => rule.cssText).join("\n");
+          styleString += rules + "\n";
+        } catch (e) {
+          // Cross-origin styles might fail, fallback to link tags
+          if (sheet.href) {
+            const link = document.createElement("link");
+            link.rel = "stylesheet";
+            link.href = sheet.href;
+            iframeDoc.head.appendChild(link);
+          }
+        }
+      });
+
+      const styleTag = document.createElement("style");
+      styleTag.textContent = styleString;
+      iframeDoc.head.appendChild(styleTag);
+
+      // 3. Inject the resume content
+      // We use the live internal resume data for the absolute latest version
+      const resumeContent = pageRef.current.innerHTML;
+      iframeDoc.body.innerHTML = `
+        <div class="resume-print-root" style="width: 210mm; height: 297mm; overflow: visible; background: #ffffff;">
+          <div class="resume-print-shell" style="width: 210mm; height: 297mm; background: #ffffff;">
+            <div class="resume-print-page" style="width: 210mm; height: 297mm; background: #ffffff;">
+              ${resumeContent}
+            </div>
+          </div>
+        </div>
+      `;
+
+      // 4. Wait for all resources (fonts, images) to load in the iframe
+      await new Promise((resolve) => {
+        const checkLoaded = () => {
+          if (iframeDoc.readyState === "complete") {
+            // Extra small timeout for font rendering
+            setTimeout(resolve, 300);
+          } else {
+            setTimeout(checkLoaded, 50);
+          }
+        };
+        checkLoaded();
+      });
+
+      // 5. Trigger print from the iframe context
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+
+      // 6. Cleanup
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+        setIsPreparingPdf(false);
+      }, 1000);
+
     } catch (error) {
       console.error("PDF export failed:", error);
-      document.body.classList.remove("printing-resume");
-      setIsPrinting(false);
       setIsPreparingPdf(false);
-      setPreviewData(latestLiveDataRef.current);
       alert("PDF export failed. Please try again.");
     }
   };
