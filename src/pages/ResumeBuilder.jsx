@@ -598,7 +598,7 @@ function ResumeBuilder() {
         });
       }
     },
-    [resumeId, currentSection?.key, loadedSections, loadingSections]
+    [currentSection?.key, loadedSections, loadingSections, resumeId]
   );
 
   const sectionAwareSetResumeData = useCallback(
@@ -704,10 +704,7 @@ function ResumeBuilder() {
 
     ensureSectionLoaded(currentSection.key);
   }, [
-    currentSection?.key,
-    ensureSectionLoaded,
-    ensureSectionsLoaded,
-    missingReviewSectionKeys,
+    missingReviewSectionKeys.join(","),
     resumeId,
   ]);
 
@@ -732,7 +729,10 @@ function ResumeBuilder() {
     
     // Initial fetch to sync preview state on entry.
     refreshProjectionState(null, { forceFetchReadModel: true });
-  }, [currentSection?.key, refreshProjectionState, resumeId]);
+    // We strictly use ONLY currentSection.key as the trigger to ensure 
+    // it only runs once per visit to the review page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSection?.key, resumeId]);
 
   // Optimized polling for projection state.
   useEffect(() => {
