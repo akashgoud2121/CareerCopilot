@@ -229,44 +229,46 @@ function ResumeBuilder() {
   }, []);
 
   const refreshProjectionState = useCallback(
-    async (explicitJobId = null) => {
+    async (explicitJobId = null, options = {}) => {
+      const { forceFetchReadModel = false } = options;
       if (!resumeId) return null;
 
       try {
         const trackedJobId = explicitJobId ?? activeProjectionJobId;
 
-        const [trackedJob, readModelRow] = await Promise.all([
-          trackedJobId
-            ? getProjectionJobById({ jobId: trackedJobId }).catch(() => null)
-            : Promise.resolve(null),
-          fetchResumeReadModel(resumeId),
-        ]);
+        const latestJob = trackedJobId
+          ? await getProjectionJobById({ jobId: trackedJobId }).catch(() => null)
+          : await getLatestProjectionJob({ resumeId });
 
-        if (
-          readModelRow?.version !== undefined &&
-          readModelRow?.version !== null
-        ) {
-          setLatestProjectedVersion(readModelRow.version);
-        }
-
-        let latestJob = trackedJob;
-
+        // Step 2: Handle Job status transitions
         if (!latestJob) {
-          latestJob = await getLatestProjectionJob({ resumeId });
-        }
-
-        if (!latestJob) {
-          if (readModelRow?.version !== undefined && readModelRow?.version !== null) {
-            setProjectionStatus("up_to_date");
-            setProjectionMessage("Preview is up to date.");
+          // Only fetch the read-model IF we actually need to sync on first load or explicitly requested.
+          if (forceFetchReadModel || latestProjectedVersion === null) {
+            const readModelRow = await fetchResumeReadModel(resumeId);
+            if (readModelRow?.version !== undefined && readModelRow?.version !== null) {
+              setLatestProjectedVersion(readModelRow.version);
+              setProjectionStatus("up_to_date");
+              setProjectionMessage("Preview is up to date.");
+            } else {
+              setProjectionStatus("idle");
+              setProjectionMessage("");
+            }
           } else {
-            setProjectionStatus("idle");
-            setProjectionMessage("");
+            // Keep existing state if no job and we already have a version
+            setProjectionStatus("up_to_date");
           }
           return null;
         }
 
         if (latestJob.status === "completed") {
+          // If the job completed, or we are specifically forcing a sync, fetch the document
+          if (forceFetchReadModel || latestProjectedVersion === null || latestJob.status === "completed") {
+            const readModelRow = await fetchResumeReadModel(resumeId);
+            if (readModelRow?.version !== undefined && readModelRow?.version !== null) {
+              setLatestProjectedVersion(readModelRow.version);
+            }
+          }
+          
           setProjectionStatus("up_to_date");
           setProjectionMessage("Preview is up to date.");
           if (trackedJobId && latestJob.id === trackedJobId) {
@@ -714,13 +716,16 @@ function ResumeBuilder() {
     }
   }, [currentStep, allSections, ensureSectionLoaded, resumeId]);
 
+  // Initial status check specifically for when entering the Review section.
+  // This replaces the previous constant polling that was causing redundant traffic.
   useEffect(() => {
-    if (!resumeId || !currentSection?.key) return;
-    if (currentSection.key === "review") {
-      refreshProjectionState();
-    }
+    if (!resumeId || currentSection?.key !== "review") return;
+    
+    // Initial fetch to sync preview state on entry.
+    refreshProjectionState(null, { forceFetchReadModel: true });
   }, [currentSection?.key, refreshProjectionState, resumeId]);
 
+  // Optimized polling for projection state.
   useEffect(() => {
     if (!shouldTrackProjection) return;
 
@@ -732,7 +737,7 @@ function ResumeBuilder() {
     };
 
     poll();
-    const intervalId = window.setInterval(poll, 2000);
+    const intervalId = window.setInterval(poll, 3000);
 
     return () => {
       cancelled = true;
@@ -971,7 +976,7 @@ function ResumeBuilder() {
         await waitForProjectionCompletion({
           jobId: jobIdToWaitFor,
           timeoutMs: 12000,
-          pollMs: 800,
+          pollMs: 1500,
         });
         setActiveProjectionJobId(null);
       } else if (USE_ASYNC_PROJECTION) {
