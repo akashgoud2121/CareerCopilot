@@ -5,8 +5,7 @@ import {
   useMemo,
   useCallback,
 } from "react";
-import { IoDownload, IoDocumentText } from "react-icons/io5";
-import { generateWordDocument } from "../../utils/resumeExport";
+import { IoDownload } from "react-icons/io5";
 
 import ClassicTemplate from "./templates/ClassicTemplate";
 import ModernTemplate from "./templates/ModernTemplate";
@@ -168,7 +167,6 @@ export default function ResumePreview({
   const [needsMultiPage, setNeedsMultiPage] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [isPreparingPdf, setIsPreparingPdf] = useState(false);
-  const [isPreparingWord, setIsPreparingWord] = useState(false);
   const [previewData, setPreviewData] = useState(safeResumeData);
 
   const pageRef = useRef(null);
@@ -190,7 +188,7 @@ export default function ResumePreview({
   }, [safeResumeData]);
 
   // Export is blocked only by active generation/printing, not by background syncing
-  const exportInProgress = isPreparingPdf || isPreparingWord || isPrinting;
+  const exportInProgress = isPreparingPdf || isPrinting;
 
   const scaledPreviewWidth = Math.round(PAPER_WIDTH * viewScale);
   const scaledPreviewHeight = Math.round(PAPER_HEIGHT * viewScale);
@@ -349,7 +347,6 @@ export default function ResumePreview({
       document.body.classList.remove("printing-resume");
       setIsPrinting(false);
       setIsPreparingPdf(false);
-      setIsPreparingWord(false);
       setPreviewData(latestLiveDataRef.current);
     };
 
@@ -443,18 +440,6 @@ export default function ResumePreview({
     }
   };
 
-  const handleDownloadWord = async () => {
-    try {
-      setIsPreparingWord(true);
-      // Use the live data directly for Word export as well.
-      await generateWordDocument(safeResumeData);
-    } catch (error) {
-      console.error("Word export failed:", error);
-      alert("Word export failed. Please try again.");
-    } finally {
-      setIsPreparingWord(false);
-    }
-  };
 
   return (
     <div className="flex flex-col gap-6 xl:flex-row xl:items-start max-w-[1400px] mx-auto p-4 sm:p-6 lg:p-10">
@@ -532,16 +517,6 @@ export default function ResumePreview({
             >
               <IoDownload size={18} />
               {isPreparingPdf || isPrinting ? "Preparing PDF..." : "Download PDF"}
-            </button>
-
-            <button
-              type="button"
-              onClick={handleDownloadWord}
-              disabled={exportInProgress}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <IoDocumentText size={18} />
-              Download Word
             </button>
           </div>
         </div>
