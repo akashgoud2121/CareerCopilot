@@ -240,10 +240,10 @@ export default function ResumePreview({
   }, [fitConfig, previewData, template]);
 
   useEffect(() => {
-    // Reset to Standard when template or content changes significantly
+    // Reset to Standard when template changes
     setFitIndex(1);
     setNeedsMultiPage(false);
-  }, [template, previewData]);
+  }, [template]);
 
   useEffect(() => {
     if (!pageRef.current || isPrinting) return;
@@ -263,9 +263,9 @@ export default function ResumePreview({
       if (contentHeight <= PAPER_HEIGHT) {
         setNeedsMultiPage(false);
         
-        // UPSCALING: If content is very sparse (e.g. less than 70% of page),
-        // we can expand to Index 0 if we are currently at Index 1.
-        if (contentHeight < PAPER_HEIGHT * 0.7 && fitIndex === 1) {
+        // UPSCALING: If content is sparse (below 82% of page),
+        // we expand to Index 0 to fill the whitespace professionally.
+        if (contentHeight < PAPER_HEIGHT * 0.82 && fitIndex === 1) {
           setFitIndex(0);
         }
         return;
