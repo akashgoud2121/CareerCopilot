@@ -141,10 +141,10 @@ const SectionHeader = ({ title, fitConfig }) => (
         fontSize: `${fitConfig.headingFont}px`,
         fontWeight: 700,
         textTransform: "uppercase",
-        letterSpacing: "0.14em",
+        letterSpacing: "0.12em",
         color: "#111827",
         lineHeight: 1.15,
-        marginBottom: "4px",
+        marginBottom: "3px",
       }}
     >
       {title}
@@ -228,13 +228,13 @@ const ResumeHeader = ({ contact, fitConfig }) => {
         <div style={{ minWidth: 0 }}>
           <div
             style={{
-              fontSize: `${fitConfig.bodyFont + 12}px`,
+              fontSize: `${fitConfig.bodyFont + 10}px`,
               fontWeight: 800,
               textTransform: "uppercase",
-              letterSpacing: "0.08em",
+              letterSpacing: "0.05em",
               color: "#111827",
               lineHeight: 1.02,
-              marginBottom: role ? "5px" : "0",
+              marginBottom: role ? "4px" : "0",
             }}
           >
             {fullName}
@@ -699,16 +699,16 @@ const CustomDynamicSection = ({ title, items, fitConfig }) => {
 const ClassicTemplate = ({
   resumeData,
   fitConfig = {
-    bodyFont: 10.8,
-    smallFont: 9.7,
-    headingFont: 10.9,
-    lineHeight: 1.25,
-    sectionGap: 6,
-    itemGap: 5,
-    pagePaddingX: 24,
-    pagePaddingY: 18,
-    bulletGap: 1,
-    skillCategoryWidth: 94,
+    bodyFont: 11.5,
+    smallFont: 10.5,
+    headingFont: 13.5,
+    lineHeight: 1.3,
+    sectionGap: 9,
+    itemGap: 7,
+    pagePaddingX: 28,
+    pagePaddingY: 22,
+    bulletGap: 1.5,
+    skillCategoryWidth: 105,
   },
   paperHeight = 1122,
   paperWidth = 794,

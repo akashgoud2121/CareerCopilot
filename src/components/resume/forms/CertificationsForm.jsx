@@ -101,6 +101,8 @@ function validateCertification(item) {
     errors.description = "Description is required.";
   } else if (item.description.trim().length < 10) {
     errors.description = "Add a little more detail in the description.";
+  } else if (item.description.trim().length > 500) {
+    errors.description = "Description is too long for a 1-page resume (limit: 500 chars).";
   }
 
   return errors;
@@ -279,6 +281,7 @@ function CertificationsForm({ value, setResumeData, onOpenAIModal }) {
                     >
                       <input
                         type="text"
+                        maxLength={100}
                         value={item.name || ""}
                         placeholder="e.g., Cloud Practitioner / Full-Stack Certificate"
                         onChange={(e) => {
@@ -289,6 +292,7 @@ function CertificationsForm({ value, setResumeData, onOpenAIModal }) {
                           !!getFieldError(index, "name")
                         )}
                       />
+                      <CharacterCounter current={item.name?.length || 0} max={100} />
                     </FieldWrapper>
 
                     <FieldWrapper
@@ -299,6 +303,7 @@ function CertificationsForm({ value, setResumeData, onOpenAIModal }) {
                     >
                       <input
                         type="text"
+                        maxLength={100}
                         value={item.issuingBody || ""}
                         placeholder="e.g., Issuing organization name"
                         onChange={(e) => {
@@ -309,6 +314,7 @@ function CertificationsForm({ value, setResumeData, onOpenAIModal }) {
                           !!getFieldError(index, "issuingBody")
                         )}
                       />
+                      <CharacterCounter current={item.issuingBody?.length || 0} max={100} />
                     </FieldWrapper>
                   </div>
 
@@ -453,6 +459,7 @@ function CertificationsForm({ value, setResumeData, onOpenAIModal }) {
 
                     <textarea
                       rows={4}
+                      maxLength={500}
                       value={item.description || ""}
                       placeholder="Mention the tools, topics, or skills covered by this certification."
                       onChange={(e) => {
@@ -465,6 +472,9 @@ function CertificationsForm({ value, setResumeData, onOpenAIModal }) {
                           : "border-slate-200 focus:border-[var(--color-primary)] focus:ring-[rgba(53,0,139,0.08)]"
                       }`}
                     />
+                    <div className="mt-1 flex justify-end">
+                      <CharacterCounter current={item.description?.length || 0} max={500} />
+                    </div>
 
                     {getFieldError(index, "description") ? (
                       <p className="mt-2 text-sm font-medium text-red-600">
@@ -535,6 +545,19 @@ function getInputClassName(hasError) {
       ? "border-red-300 focus:border-red-500 focus:ring-red-100"
       : "border-slate-200 focus:border-[var(--color-primary)] focus:ring-[rgba(53,0,139,0.08)]"
   }`;
+}
+
+function CharacterCounter({ current, max }) {
+  const isClose = current > max * 0.85;
+  const isOver = current >= max;
+
+  return (
+    <p className={`mt-1.5 text-right text-[11px] font-bold uppercase tracking-wider ${
+      isOver ? "text-red-600" : isClose ? "text-amber-600" : "text-slate-400"
+    }`}>
+      {current} / {max} <span className="ml-1 opacity-60">chars</span>
+    </p>
+  );
 }
 
 export default CertificationsForm;

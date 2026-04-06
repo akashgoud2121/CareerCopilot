@@ -121,6 +121,8 @@ function validateExperience(item) {
     errors.description = "Description is required.";
   } else if (item.description.trim().length < 40) {
     errors.description = "Description should be at least 40 characters.";
+  } else if (item.description.trim().length > 600) {
+    errors.description = "Description is too long for a 1-page ATS resume (limit: 600 chars).";
   }
 
   return errors;
@@ -323,6 +325,7 @@ function ExperienceForm({ value, setResumeData, onOpenAIModal, showValidationErr
                     >
                       <input
                         type="text"
+                        maxLength={100}
                         value={item.role || ""}
                         onChange={(e) => {
                           updateExperience(item.clientKey, "role", e.target.value);
@@ -331,6 +334,7 @@ function ExperienceForm({ value, setResumeData, onOpenAIModal, showValidationErr
                         placeholder="e.g., Software Engineer Intern"
                         className={getInputClassName(!!getError(index, "role"))}
                       />
+                      <CharacterCounter current={item.role?.length || 0} max={100} />
                     </FieldWrapper>
 
                     <FieldWrapper
@@ -341,6 +345,7 @@ function ExperienceForm({ value, setResumeData, onOpenAIModal, showValidationErr
                     >
                       <input
                         type="text"
+                        maxLength={100}
                         value={item.company || ""}
                         onChange={(e) => {
                           updateExperience(item.clientKey, "company", e.target.value);
@@ -349,6 +354,7 @@ function ExperienceForm({ value, setResumeData, onOpenAIModal, showValidationErr
                         placeholder="e.g., Company / Organization name"
                         className={getInputClassName(!!getError(index, "company"))}
                       />
+                      <CharacterCounter current={item.company?.length || 0} max={100} />
                     </FieldWrapper>
 
                     <FieldWrapper
@@ -569,6 +575,7 @@ function ExperienceForm({ value, setResumeData, onOpenAIModal, showValidationErr
 
                     <textarea
                       rows={5}
+                      maxLength={600}
                       value={item.description || ""}
                       onChange={(e) => {
                         updateExperience(item.clientKey, "description", e.target.value);
@@ -581,6 +588,9 @@ function ExperienceForm({ value, setResumeData, onOpenAIModal, showValidationErr
                           : "border-slate-200 focus:border-[var(--color-primary)] focus:ring-[rgba(53,0,139,0.08)]"
                       }`}
                     />
+                    <div className="mt-1 flex justify-end">
+                      <CharacterCounter current={item.description?.length || 0} max={600} />
+                    </div>
 
                     {getError(index, "description") ? (
                       <p className="mt-2 text-sm font-medium text-red-600">
@@ -652,6 +662,19 @@ function getInputClassName(hasError, disabled = false) {
       ? "border-red-300 focus:border-red-500 focus:ring-red-100"
       : "border-slate-200 focus:border-[var(--color-primary)] focus:ring-[rgba(53,0,139,0.08)]"
   } ${disabled ? "cursor-not-allowed bg-slate-100 text-slate-500" : ""}`;
+}
+
+function CharacterCounter({ current, max }) {
+  const isClose = current > max * 0.85;
+  const isOver = current >= max;
+
+  return (
+    <p className={`mt-1.5 text-right text-[11px] font-bold uppercase tracking-wider ${
+      isOver ? "text-red-600" : isClose ? "text-amber-600" : "text-slate-400"
+    }`}>
+      {current} / {max} <span className="ml-1 opacity-60">chars</span>
+    </p>
+  );
 }
 
 export default ExperienceForm;

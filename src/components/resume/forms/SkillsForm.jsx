@@ -592,11 +592,21 @@ function SkillsForm({ value, setResumeData, showValidationErrors = false }) {
                 <button
                   type="button"
                   onClick={addSkillRow}
-                  className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-95 shadow-sm"
+                  disabled={rows.length >= 12}
+                  className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition shadow-sm ${
+                    rows.length >= 12
+                      ? "bg-slate-100 text-slate-400 cursor-not-allowed"
+                      : "bg-[var(--color-primary)] text-white hover:opacity-95"
+                  }`}
                 >
                   <Plus size={16} />
                   Add Another Category
                 </button>
+                {rows.length >= 10 && (
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-amber-600">
+                    Recommended: Max 10 categories for 1-page fit
+                  </p>
+                )}
               </div>
 
               <div className="mt-6 rounded-2xl border border-slate-200 bg-[var(--color-bg-alt)] p-5 sm:p-6">
@@ -610,9 +620,13 @@ function SkillsForm({ value, setResumeData, showValidationErrors = false }) {
                     </p>
                   </div>
 
-                  <span className="text-xs font-medium text-slate-500">
-                    {totalSelectedSkills} selected
-                  </span>
+                  <div className="text-right">
+                    <span className={`text-xs font-bold uppercase tracking-wider ${
+                      totalSelectedSkills > 40 ? "text-red-500" : totalSelectedSkills > 30 ? "text-amber-500" : "text-slate-400"
+                    }`}>
+                      {totalSelectedSkills} / 40 <span className="ml-1 opacity-60">Total Skills</span>
+                    </span>
+                  </div>
                 </div>
 
                 {error ? (

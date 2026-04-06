@@ -316,6 +316,7 @@ function EducationForm({ value, setResumeData, showValidationErrors = false }) {
                     >
                       <input
                         type="text"
+                        maxLength={100}
                         value={item.institution || ""}
                         placeholder="e.g., State University of Technology"
                         onChange={(e) => {
@@ -326,6 +327,7 @@ function EducationForm({ value, setResumeData, showValidationErrors = false }) {
                           !!getFieldError(index, "institution")
                         )}
                       />
+                      <CharacterCounter current={item.institution?.length || 0} max={100} />
                     </FieldWrapper>
 
                     <FieldWrapper
@@ -336,6 +338,7 @@ function EducationForm({ value, setResumeData, showValidationErrors = false }) {
                     >
                       <input
                         type="text"
+                        maxLength={100}
                         value={item.degreeMajor || ""}
                         placeholder="e.g., B.Tech in Computer Science"
                         onChange={(e) => {
@@ -346,6 +349,7 @@ function EducationForm({ value, setResumeData, showValidationErrors = false }) {
                           !!getFieldError(index, "degreeMajor")
                         )}
                       />
+                      <CharacterCounter current={item.degreeMajor?.length || 0} max={100} />
                     </FieldWrapper>
 
                     <FieldWrapper
@@ -355,6 +359,7 @@ function EducationForm({ value, setResumeData, showValidationErrors = false }) {
                     >
                       <input
                         type="text"
+                        maxLength={20}
                         value={item.cgpaOrPercentage || ""}
                         placeholder="e.g., 8.5 or 92%"
                         onChange={(e) => {
@@ -369,6 +374,7 @@ function EducationForm({ value, setResumeData, showValidationErrors = false }) {
                           !!getFieldError(index, "cgpaOrPercentage")
                         )}
                       />
+                      <CharacterCounter current={item.cgpaOrPercentage?.length || 0} max={20} />
                     </FieldWrapper>
                   </div>
 
@@ -575,6 +581,19 @@ function getInputClassName(hasError) {
       ? "border-red-300 focus:border-red-500 focus:ring-red-100"
       : "border-slate-200 focus:border-[var(--color-primary)] focus:ring-[rgba(53,0,139,0.08)]"
   }`;
+}
+
+function CharacterCounter({ current, max }) {
+  const isClose = current > max * 0.85;
+  const isOver = current >= max;
+
+  return (
+    <p className={`mt-1.5 text-right text-[11px] font-bold uppercase tracking-wider ${
+      isOver ? "text-red-600" : isClose ? "text-amber-600" : "text-slate-400"
+    }`}>
+      {current} / {max} <span className="ml-1 opacity-60">chars</span>
+    </p>
+  );
 }
 
 export default EducationForm;

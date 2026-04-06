@@ -119,6 +119,8 @@ function validateProject(project) {
     errors.description = "Project description is required.";
   } else if (project.description.trim().length < 30) {
     errors.description = "Description should be at least 30 characters.";
+  } else if (project.description.trim().length > 600) {
+    errors.description = "Description is too long for a 1-page ATS resume (limit: 600 chars).";
   }
 
   if (
@@ -340,6 +342,7 @@ function ProjectsForm({ value, setResumeData, onOpenAIModal, showValidationError
                     >
                       <input
                         type="text"
+                        maxLength={100}
                         value={project.title || ""}
                         placeholder="e.g., Your Project Title"
                         onChange={(e) => {
@@ -348,6 +351,7 @@ function ProjectsForm({ value, setResumeData, onOpenAIModal, showValidationError
                         }}
                         className={getInputClassName(!!getFieldError(index, "title"))}
                       />
+                      <CharacterCounter current={project.title?.length || 0} max={100} />
                     </FieldWrapper>
 
                     <FieldWrapper
@@ -383,6 +387,7 @@ function ProjectsForm({ value, setResumeData, onOpenAIModal, showValidationError
                     >
                       <input
                         type="text"
+                        maxLength={100}
                         value={project.organization || ""}
                         placeholder="e.g., College / Company / Personal"
                         onChange={(e) => {
@@ -393,6 +398,7 @@ function ProjectsForm({ value, setResumeData, onOpenAIModal, showValidationError
                           !!getFieldError(index, "organization")
                         )}
                       />
+                      <CharacterCounter current={project.organization?.length || 0} max={100} />
                     </FieldWrapper>
 
                     <FieldWrapper
@@ -586,6 +592,7 @@ function ProjectsForm({ value, setResumeData, onOpenAIModal, showValidationError
 
                     <textarea
                       rows={5}
+                      maxLength={600}
                       value={project.description || ""}
                       placeholder="Explain the project, your role, tools used, what problem it solved, and the result or impact."
                       onChange={(e) => {
@@ -598,6 +605,9 @@ function ProjectsForm({ value, setResumeData, onOpenAIModal, showValidationError
                           : "border-slate-200 focus:border-[var(--color-primary)] focus:ring-[rgba(53,0,139,0.08)]"
                       }`}
                     />
+                    <div className="mt-1 flex justify-end">
+                      <CharacterCounter current={project.description?.length || 0} max={600} />
+                    </div>
 
                     {getFieldError(index, "description") ? (
                       <p className="mt-2 text-sm font-medium text-red-600">
@@ -667,6 +677,19 @@ function getInputClassName(hasError, disabled = false) {
       ? "border-red-300 focus:border-red-500 focus:ring-red-100"
       : "border-slate-200 focus:border-[var(--color-primary)] focus:ring-[rgba(53,0,139,0.08)]"
   } ${disabled ? "cursor-not-allowed bg-slate-100 text-slate-500" : ""}`;
+}
+
+function CharacterCounter({ current, max }) {
+  const isClose = current > max * 0.85;
+  const isOver = current >= max;
+
+  return (
+    <p className={`mt-1.5 text-right text-[11px] font-bold uppercase tracking-wider ${
+      isOver ? "text-red-600" : isClose ? "text-amber-600" : "text-slate-400"
+    }`}>
+      {current} / {max} <span className="ml-1 opacity-60">chars</span>
+    </p>
+  );
 }
 
 export default ProjectsForm;

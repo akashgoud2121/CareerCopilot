@@ -90,14 +90,6 @@ function SummaryForm({ value, setResumeData, onOpenAIModal, showValidationErrors
               </label>
 
               <div className="flex items-center gap-3">
-                <span
-                  className={`text-xs font-medium ${
-                    summaryLength > 450 ? "text-red-500" : "text-slate-500"
-                  }`}
-                >
-                  {summaryLength}/500
-                </span>
-
                 {onOpenAIModal && (
                   <button
                     type="button"
@@ -126,18 +118,29 @@ function SummaryForm({ value, setResumeData, onOpenAIModal, showValidationErrors
                   : "border-slate-200 focus:border-[var(--color-primary)] focus:ring-4 focus:ring-[rgba(53,0,139,0.08)]"
               }`}
             />
-
-            {currentError ? (
-              <p className="mt-2 text-sm font-medium text-red-600">{currentError}</p>
-            ) : (
-              <p className="mt-3 text-sm leading-6 text-slate-500">
-                Keep it short, clear, and easy to read.
+            <div className="mt-1 flex items-center justify-between">
+              <p className={`text-sm font-medium ${currentError ? "text-red-600" : "text-slate-500"}`}>
+                {currentError || (summaryLength >= 450 ? "Approaching limit for 1-page fit." : "")}
               </p>
-            )}
+              <CharacterCounter current={summaryLength} max={500} />
+            </div>
           </div>
         </div>
       </div>
     </section>
+  );
+}
+
+function CharacterCounter({ current, max }) {
+  const isClose = current > max * 0.85;
+  const isOver = current >= max;
+
+  return (
+    <p className={`text-right text-[11px] font-bold uppercase tracking-wider ${
+      isOver ? "text-red-600" : isClose ? "text-amber-600" : "text-slate-400"
+    }`}>
+      {current} / {max} <span className="ml-1 opacity-60">chars</span>
+    </p>
   );
 }
 

@@ -21,10 +21,37 @@ const PAPER_HEIGHT = 1122;
 
 const FIT_PRESETS = [
   {
-    bodyFont: 11.2,
-    smallFont: 10.1,
-    headingFont: 11.2,
+    // INDEX 0: EXPANDED (For Low Content/Freshers)
+    bodyFont: 11.8,
+    smallFont: 10.8,
+    headingFont: 14.5,
+    lineHeight: 1.35,
+    sectionGap: 18,
+    itemGap: 12,
+    pagePaddingX: 30,
+    pagePaddingY: 34,
+    bulletGap: 2.2,
+    skillCategoryWidth: 110,
+  },
+  {
+    // INDEX 1: STANDARD (Default)
+    bodyFont: 11.5,
+    smallFont: 10.5,
+    headingFont: 13.5,
     lineHeight: 1.3,
+    sectionGap: 9,
+    itemGap: 7,
+    pagePaddingX: 28,
+    pagePaddingY: 22,
+    bulletGap: 1.5,
+    skillCategoryWidth: 105,
+  },
+  {
+    // INDEX 2: COMPACT
+    bodyFont: 11.2,
+    smallFont: 10.2,
+    headingFont: 12.8,
+    lineHeight: 1.28,
     sectionGap: 8,
     itemGap: 6,
     pagePaddingX: 26,
@@ -33,10 +60,11 @@ const FIT_PRESETS = [
     skillCategoryWidth: 100,
   },
   {
+    // INDEX 3: ULTRA COMPACT
     bodyFont: 10.9,
     smallFont: 9.9,
-    headingFont: 10.9,
-    lineHeight: 1.27,
+    headingFont: 12.2,
+    lineHeight: 1.25,
     sectionGap: 7,
     itemGap: 5,
     pagePaddingX: 24,
@@ -45,28 +73,17 @@ const FIT_PRESETS = [
     skillCategoryWidth: 96,
   },
   {
-    bodyFont: 10.6,
+    // INDEX 4: MAXIMUM ATS COMPRESSION
+    bodyFont: 10.5, // Minimum ATS readability floor
     smallFont: 9.6,
-    headingFont: 10.6,
-    lineHeight: 1.23,
+    headingFont: 11.5,
+    lineHeight: 1.22,
     sectionGap: 6,
     itemGap: 4,
     pagePaddingX: 22,
     pagePaddingY: 16,
-    bulletGap: 1,
+    bulletGap: 0.5,
     skillCategoryWidth: 92,
-  },
-  {
-    bodyFont: 10.3,
-    smallFont: 9.3,
-    headingFont: 10.3,
-    lineHeight: 1.19,
-    sectionGap: 5,
-    itemGap: 4,
-    pagePaddingX: 20,
-    pagePaddingY: 14,
-    bulletGap: 0,
-    skillCategoryWidth: 88,
   },
 ];
 
@@ -146,7 +163,7 @@ export default function ResumePreview({
     }
   }, [safeResumeData.template_name]);
 
-  const [fitIndex, setFitIndex] = useState(0);
+  const [fitIndex, setFitIndex] = useState(1); // Standard starts at Index 1
   const [viewScale, setViewScale] = useState(1);
   const [needsMultiPage, setNeedsMultiPage] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
@@ -223,7 +240,8 @@ export default function ResumePreview({
   }, [fitConfig, previewData, template]);
 
   useEffect(() => {
-    setFitIndex(0);
+    // Reset to Standard when template or content changes significantly
+    setFitIndex(1);
     setNeedsMultiPage(false);
   }, [template, previewData]);
 
@@ -244,9 +262,16 @@ export default function ResumePreview({
 
       if (contentHeight <= PAPER_HEIGHT) {
         setNeedsMultiPage(false);
+        
+        // UPSCALING: If content is very sparse (e.g. less than 70% of page),
+        // we can expand to Index 0 if we are currently at Index 1.
+        if (contentHeight < PAPER_HEIGHT * 0.7 && fitIndex === 1) {
+          setFitIndex(0);
+        }
         return;
       }
 
+      // DOWNSCALING: If overflowing, move towards smaller presets
       if (fitIndex < FIT_PRESETS.length - 1) {
         setFitIndex((prev) => Math.min(prev + 1, FIT_PRESETS.length - 1));
         return;
