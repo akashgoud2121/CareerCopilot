@@ -4,29 +4,29 @@ function HowItWorksSection() {
       number: "1",
       title: "Sign In",
       description: "Create your free account to get started.",
-      badgeClass:
-        "bg-[var(--color-primary)] text-white shadow-[0_12px_24px_rgba(53,0,139,0.18)]",
+      badgeClass: "bg-[var(--color-primary)]/10 text-[var(--color-primary)] border border-[var(--color-primary)]/20 shadow-sm",
+      cardClass: "bg-[color-mix(in_srgb,var(--color-primary),transparent_97%)] border-[var(--color-primary)]/10",
     },
     {
       number: "2",
       title: "Add Gemini Key",
       description: "Provide your API key to unlock AI power.",
-      badgeClass:
-        "bg-[var(--color-accent-1)] text-white shadow-[0_12px_24px_rgba(249,115,22,0.22)]",
+      badgeClass: "bg-[var(--color-accent-1)]/10 text-[var(--color-accent-1)] border border-[var(--color-accent-1)]/20 shadow-sm",
+      cardClass: "bg-[color-mix(in_srgb,var(--color-accent-1),transparent_97%)] border-[var(--color-accent-1)]/10",
     },
     {
       number: "3",
       title: "Build Resume",
       description: "Use our simple builder to craft your profile.",
-      badgeClass:
-        "bg-[var(--color-accent-2)] text-[var(--color-text)] shadow-[0_12px_24px_rgba(251,191,36,0.22)]",
+      badgeClass: "bg-[var(--color-accent-2)]/10 text-[var(--color-accent-2)] border border-[var(--color-accent-2)]/20 shadow-sm",
+      cardClass: "bg-[color-mix(in_srgb,var(--color-accent-2),transparent_97%)] border-[var(--color-accent-2)]/10",
     },
     {
       number: "4",
       title: "Grow",
       description: "Access more career tools as they launch.",
-      badgeClass:
-        "bg-[var(--color-secondary)] text-white shadow-[0_12px_24px_rgba(124,58,237,0.18)]",
+      badgeClass: "bg-[var(--color-secondary)]/10 text-[var(--color-secondary)] border border-[var(--color-secondary)]/20 shadow-sm",
+      cardClass: "bg-[color-mix(in_srgb,var(--color-secondary),transparent_97%)] border-[var(--color-secondary)]/10",
     },
   ];
 
@@ -59,9 +59,9 @@ function HowItWorksSection() {
                 <div className="absolute left-[calc(100%-10px)] top-11 hidden h-[2px] w-8 bg-gradient-to-r from-[var(--color-accent-1)] to-[var(--color-accent-2)] xl:block" />
               )}
 
-              <div className="h-full rounded-3xl border border-slate-200/80 bg-white/90 p-6 shadow-sm backdrop-blur-sm transition duration-300 hover:-translate-y-1 hover:shadow-md">
+              <div className={`h-full rounded-3xl border ${step.cardClass} p-6 shadow-sm backdrop-blur-sm transition duration-300 hover:-translate-y-1 hover:shadow-md`}>
                 <div
-                  className={`mb-5 flex h-14 w-14 items-center justify-center rounded-2xl text-lg font-bold ${step.badgeClass}`}
+                  className={`mb-5 flex h-14 w-14 items-center justify-center rounded-[20px] text-lg font-extrabold ${step.badgeClass}`}
                 >
                   {step.number}
                 </div>
