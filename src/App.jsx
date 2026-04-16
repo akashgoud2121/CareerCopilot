@@ -9,7 +9,6 @@ import HowItWorks from "./pages/HowItWorks";
 import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
 import ResumeBuilder from "./pages/ResumeBuilder";
-import SavedJobs from "./pages/SavedJobs";
 import Settings from "./pages/Settings";
 
 import ScrollToTop from "./components/common/ScrollToTop";
@@ -32,7 +31,6 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/resume-builder" element={<ResumeBuilder />} />
-            <Route path="/saved-jobs" element={<SavedJobs />} />
           </Routes>
         </main>
         <Footer />

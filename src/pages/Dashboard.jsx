@@ -4,6 +4,8 @@ import { FiEdit3, FiLayout, FiBookmark, FiLogOut, FiPlus } from "react-icons/fi"
 import { BsPinFill, BsPinAngleFill } from "react-icons/bs";
 import { supabase } from "../services/supabase";
 import { initializeResumeBuilder, saveResumeSectionsBatch, ensureProfileAndResume } from "../services/resumeBuilderApi";
+import ConfirmModal from "../components/common/ConfirmModal";
+import JobBoard from "../components/dashboard/JobBoard";
 
 const TemplateMiniPreview = ({ template }) => {
   if (template === 'modern') {
@@ -127,6 +129,14 @@ function Dashboard() {
   const [newTargetRole, setNewTargetRole] = useState("");
   const [newTargetUrl, setNewTargetUrl] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  
+  // Delete Confirmation State
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [resumeToDelete, setResumeToDelete] = useState(null);
+
+  // Job Delete State
+  const [jobDeleteModalOpen, setJobDeleteModalOpen] = useState(false);
+  const [jobToDelete, setJobToDelete] = useState(null);
 
 
 
@@ -413,14 +423,87 @@ function Dashboard() {
     navigate(`/resume-builder?id=${resumeId}&action=download`);
   };
 
-  const handleDelete = async (resumeId, e) => {
+  const handleDelete = (resumeId, e) => {
     e?.stopPropagation();
-    if (!window.confirm("Are you sure you want to delete this document?")) return;
+    setResumeToDelete(resumeId);
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!resumeToDelete) return;
     try {
-      await supabase.from("resumes").delete().eq("id", resumeId);
-      setResumes((prev) => prev.filter(r => r.id !== resumeId));
+      await supabase.from("resumes").delete().eq("id", resumeToDelete);
+      setResumes((prev) => prev.filter(r => r.id !== resumeToDelete));
+      setDeleteModalOpen(false);
+      setResumeToDelete(null);
     } catch (err) {
       console.error("Failed to delete", err);
+      alert("Failed to delete document.");
+    }
+  };
+
+  // Job Actions
+  const handleCreateJob = async ({ companyName, jobTitle, jobUrl, status }) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data: newJob, error } = await supabase.from("saved_jobs").insert({
+        user_id: user.id,
+        company_name: companyName,
+        job_title: jobTitle,
+        job_url: jobUrl || null,
+        status: status
+      }).select().single();
+
+      if (error) throw error;
+      setSavedJobs(prev => [newJob, ...prev]);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to track job");
+    }
+  };
+
+  const handleJobStatusChange = async (id, newStatus) => {
+    try {
+      const { data, error } = await supabase.from("saved_jobs").update({ status: newStatus }).eq("id", id).select().single();
+      if (error) throw error;
+      setSavedJobs(prev => prev.map(j => j.id === id ? data : j));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleUpdateJob = async (id, form) => {
+    try {
+      const { data, error } = await supabase.from("saved_jobs").update({
+        company_name: form.companyName,
+        job_title: form.jobTitle,
+        job_url: form.jobUrl || null,
+        status: form.status
+      }).eq("id", id).select().single();
+      
+      if (error) throw error;
+      setSavedJobs(prev => prev.map(j => j.id === id ? data : j));
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update job.");
+    }
+  };
+
+  const triggerJobDelete = (id) => {
+    setJobToDelete(id);
+    setJobDeleteModalOpen(true);
+  };
+
+  const confirmJobDelete = async () => {
+    if (!jobToDelete) return;
+    try {
+      await supabase.from("saved_jobs").delete().eq("id", jobToDelete);
+      setSavedJobs(prev => prev.filter(j => j.id !== jobToDelete));
+      setJobDeleteModalOpen(false);
+      setJobToDelete(null);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete job track.");
     }
   };
 
@@ -501,61 +584,73 @@ function Dashboard() {
         {/* Tabs & Search Controls */}
         <div className="mb-6 flex flex-col gap-4 border-b border-slate-200 pb-0 md:flex-row md:items-end md:justify-between">
           
-          <div className="flex items-center gap-8 px-2 overflow-x-auto no-scrollbar">
+          <div className="flex items-center gap-8 border-b border-slate-200 overflow-x-auto no-scrollbar">
             <button 
               onClick={() => setActiveTab("all")} 
-              className={`border-b-2 pb-3 text-sm font-medium whitespace-nowrap ${activeTab === "all" ? "border-[var(--color-primary)] text-[var(--color-primary)]" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+              className={`pb-4 text-sm font-bold tracking-tight whitespace-nowrap border-b-2 transition-all ${activeTab === "all" ? "border-[var(--color-primary)] text-[var(--color-primary)]" : "border-transparent text-slate-500 hover:text-slate-700"}`}
             >
-              All documents
+              All documents ({resumes.length})
             </button>
             <button 
-              onClick={() => setActiveTab("resumes")} 
-              className={`border-b-2 pb-3 text-sm font-medium whitespace-nowrap ${activeTab === "resumes" ? "border-[var(--color-primary)] text-[var(--color-primary)]" : "border-transparent text-slate-500 hover:text-slate-700"}`}
+              onClick={() => setActiveTab("jobs")} 
+              className={`pb-4 text-sm font-bold tracking-tight whitespace-nowrap border-b-2 transition-all flex items-center gap-2 ${activeTab === "jobs" ? "border-[var(--color-primary)] text-[var(--color-primary)]" : "border-transparent text-slate-500 hover:text-slate-700"}`}
             >
-              Resumes ({resumes.length})
+              Tracked Jobs ({savedJobs.length})
             </button>
           </div>
 
-          <div className="flex items-center gap-4 py-2 flex-wrap">
-            <div className="relative flex-grow sm:flex-grow-0">
-              <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input 
-                type="text" 
-                placeholder="Search" 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-full border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)] sm:w-64"
-              />
-            </div>
-            
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
-              View:
-              <div className="flex overflow-hidden rounded border border-slate-200 bg-white shadow-sm">
-                <button 
-                  onClick={() => setViewMode("grid")}
-                  className={`p-1.5 transition ${viewMode === "grid" ? "bg-slate-700 text-white" : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"}`}
-                >
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                  </svg>
-                </button>
-                <button 
-                  onClick={() => setViewMode("list")}
-                  className={`p-1.5 transition ${viewMode === "list" ? "bg-slate-700 text-white" : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"}`}
-                >
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                </button>
+          {activeTab === "all" && (
+            <div className="flex items-center gap-4 py-2 flex-wrap">
+              <div className="relative flex-grow sm:flex-grow-0">
+                <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input 
+                  type="text" 
+                  placeholder="Search documents..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full rounded-full border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm outline-none transition focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-primary)] sm:w-64"
+                />
+              </div>
+              
+              <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                View:
+                <div className="flex overflow-hidden rounded border border-slate-200 bg-white shadow-sm">
+                  <button 
+                    onClick={() => setViewMode("grid")}
+                    className={`p-1.5 transition ${viewMode === "grid" ? "bg-slate-700 text-white" : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"}`}
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                    </svg>
+                  </button>
+                  <button 
+                    onClick={() => setViewMode("list")}
+                    className={`p-1.5 transition ${viewMode === "list" ? "bg-slate-700 text-white" : "text-slate-400 hover:bg-slate-50 hover:text-slate-700"}`}
+                  >
+                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Document Render Area */}
-        {viewMode === "list" ? (
+        {/* Dynamic Content Area */}
+        {activeTab === "jobs" ? (
+          <JobBoard 
+            jobs={savedJobs}
+            loading={loading}
+            onCreateJob={handleCreateJob}
+            onDeleteJob={triggerJobDelete}
+            onStatusChange={handleJobStatusChange}
+            onUpdateJob={handleUpdateJob}
+          />
+        ) : (
+          viewMode === "list" ? (
           <div className="overflow-x-auto rounded-[16px] border border-slate-100 bg-white p-2 shadow-[0_2px_15px_rgba(0,0,0,0.02)]">
             <table className="w-full min-w-[800px] border-collapse text-left">
               <thead>
@@ -813,7 +908,7 @@ function Dashboard() {
               </div>
             )}
           </div>
-        )}
+        ))}
       </div>
 
       {jobModalOpen && (
@@ -1000,10 +1095,28 @@ function Dashboard() {
           </div>
         </div>
       )}
+
+      <ConfirmModal 
+        isOpen={deleteModalOpen}
+        onClose={() => { setDeleteModalOpen(false); setResumeToDelete(null); }}
+        onConfirm={confirmDelete}
+        title="Delete Document?"
+        message="Are you sure you want to delete this document? This action is permanent and cannot be undone."
+        confirmText="Yes, delete it"
+        cancelText="No, keep it"
+      />
+
+      <ConfirmModal 
+        isOpen={jobDeleteModalOpen}
+        onClose={() => { setJobDeleteModalOpen(false); setJobToDelete(null); }}
+        onConfirm={confirmJobDelete}
+        title="Remove from board?"
+        message="Are you sure you want to delete this job track? This action is permanent and cannot be undone."
+        confirmText="Yes, remove it"
+        cancelText="No, keep it"
+      />
     </div>
   );
 }
-
-
 
 export default Dashboard;
