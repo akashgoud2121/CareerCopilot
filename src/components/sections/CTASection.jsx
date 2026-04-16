@@ -64,7 +64,7 @@ function CTASection() {
               </Link>
 
               <Link
-                to="/how-it-works"
+                to="/signup"
                 className="rounded-2xl border border-white/20 bg-white/5 px-7 py-3.5 text-sm font-semibold text-white transition-all hover:scale-105 hover:bg-white/10 active:scale-95"
               >
                 Create Resume

@@ -64,7 +64,7 @@ function HeroSection() {
             className="mt-8 flex flex-col gap-4 sm:flex-row"
           >
             <Link
-              to="/how-it-works"
+              to="/signup"
               className="group relative overflow-hidden rounded-xl bg-[var(--color-primary)] px-8 py-4 text-center text-sm font-semibold text-white shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]"
             >
               <span className="relative z-10">Create Resume</span>
