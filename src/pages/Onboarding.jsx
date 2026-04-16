@@ -41,7 +41,7 @@ function Onboarding() {
           .from("onboarding")
           .select("*")
           .eq("user_id", user.id)
-          .single();
+          .maybeSingle();
 
         if (onboardingData) {
           const processed = {

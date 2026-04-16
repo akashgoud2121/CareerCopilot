@@ -150,8 +150,8 @@ function Dashboard() {
 
       try {
         const [profileRes, resumesRes, jobsRes] = await Promise.all([
-          supabase.from("profiles").select("*").eq("id", user.id).single(),
-          supabase.from("resumes").select("*, saved_jobs(id, company_name, job_title), resume_full_documents(document_json)").order("is_primary", { ascending: false }).order("updated_at", { ascending: false }),
+          supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+          supabase.from("resumes").select("*, saved_jobs(id, company_name, job_title), resume_full_documents(document_json)").eq("user_id", user.id).order("is_primary", { ascending: false }).order("updated_at", { ascending: false }),
           supabase.from("saved_jobs").select("*").eq("user_id", user.id).order("created_at", { ascending: false })
         ]);
 
@@ -186,12 +186,12 @@ function Dashboard() {
         .from("resumes")
         .update({ target_job_id: jobId })
         .eq("id", activeResumeForJob)
-        .select("*, saved_jobs(id, company_name, job_title)")
+        .select("*, saved_jobs(id, company_name, job_title), resume_full_documents(document_json)")
         .single();
         
       if (error) throw error;
       
-      // Update local state with the new resume data (which might have null saved_jobs now)
+      // Update local state and close modal immediately
       setResumes(prev => prev.map(r => r.id === activeResumeForJob ? data : r));
       setJobModalOpen(false);
       setActiveResumeForJob(null);
@@ -254,7 +254,7 @@ function Dashboard() {
         .from("resumes")
         .update({ target_job_id: jobData.id })
         .eq("id", activeResumeForJob)
-        .select("*, saved_jobs(id, company_name, job_title)")
+        .select("*, saved_jobs(id, company_name, job_title), resume_full_documents(document_json)")
         .single();
         
       if (resumeErr) throw resumeErr;
@@ -884,7 +884,34 @@ function Dashboard() {
                       </div>
                     )}
                   </div>
-                  <div className="mt-1 flex items-center justify-between text-[11px] font-semibold text-slate-400">
+
+                  {/* Job Target Info */}
+                  <div className="mt-2.5">
+                    {resume.saved_jobs ? (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setActiveResumeForJob(resume.id); setJobModalOpen(true); }}
+                        className="group/job flex w-full items-center justify-between rounded-xl bg-[var(--color-primary)]/5 px-3 py-2 transition hover:bg-[var(--color-primary)]/10"
+                      >
+                        <div className="flex flex-col min-w-0 text-left">
+                          <span className="truncate text-[9px] font-black uppercase tracking-widest text-[var(--color-primary)] opacity-60">Target Job</span>
+                          <span className="truncate text-[12px] font-bold text-slate-800">{resume.saved_jobs.company_name}</span>
+                        </div>
+                        <svg className="h-3.5 w-3.5 shrink-0 text-[var(--color-primary)] opacity-0 transition-opacity group-hover/job:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); setActiveResumeForJob(resume.id); setJobModalOpen(true); }}
+                        className="flex w-full items-center gap-1.5 rounded-xl border border-dashed border-slate-200 px-3 py-2 text-[11px] font-bold text-slate-400 transition hover:border-[var(--color-primary)]/40 hover:bg-slate-50 hover:text-[var(--color-primary)]"
+                      >
+                        <span className="text-lg leading-none">+</span>
+                        Link Target Job
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between text-[11px] font-semibold text-slate-400">
                     <span>{getRelativeTime(resume.updated_at)}</span>
                     <div 
                       onClick={(e) => { 

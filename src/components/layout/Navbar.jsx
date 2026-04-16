@@ -20,7 +20,7 @@ function Navbar() {
         .from("profiles")
         .select("full_name")
         .eq("id", sessionUser.id)
-        .single();
+        .maybeSingle();
       if (data) setProfile(data);
     };
 
