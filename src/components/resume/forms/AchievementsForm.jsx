@@ -11,7 +11,7 @@ import {
   Trash2,
   Sparkles,
 } from "lucide-react";
-import { createEmptyAchievementItem } from "../../../utils/resumeSchema";
+import { createEmptyAchievementItem, isObjectiveText } from "../../../utils/resumeSchema";
 
 const ACHIEVEMENT_CATEGORIES = [
   "Hackathon",
@@ -96,6 +96,13 @@ function validateAchievement(item) {
 
   if (!item.organizerOrRank?.trim()) {
     errors.organizerOrRank = "Organized by / rank is required.";
+  }
+
+  // Smart Validation for Objective-style text
+  if (isObjectiveText(item.title)) {
+    errors.title = "This looks like a summary or is too long (limit: 10 words). Please keep titles concise.";
+  } else if (isObjectiveText(item.organizerOrRank)) {
+    errors.organizerOrRank = "Organizer name looks like a summary or exceeds 10 words. Please keep it concise.";
   }
 
   if (!item.month) {
@@ -319,8 +326,9 @@ function AchievementsForm({ value, setResumeData, onOpenAIModal }) {
                     >
                       <input
                         type="text"
+                        maxLength={100}
                         value={item.title || ""}
-                        placeholder="e.g., National Hackathon / Coding Contest"
+                        placeholder="e.g. National Hackathon / 1st Place Coding Contest"
                         onChange={(e) => {
                           updateAchievement(item.clientKey, "title", e.target.value);
                           setTouched(true);
@@ -329,6 +337,7 @@ function AchievementsForm({ value, setResumeData, onOpenAIModal }) {
                           !!getFieldError(index, "title")
                         )}
                       />
+                      <CharacterCounter current={item.title?.length || 0} max={100} />
                     </FieldWrapper>
                   </div>
 
@@ -341,8 +350,9 @@ function AchievementsForm({ value, setResumeData, onOpenAIModal }) {
                     >
                       <input
                         type="text"
+                        maxLength={100}
                         value={item.organizerOrRank || ""}
-                        placeholder="e.g., 1st Place / Top 10 / National Level"
+                        placeholder="e.g. Smart India Hackathon / IIT Bombay"
                         onChange={(e) => {
                           updateAchievement(
                             item.clientKey,
@@ -355,6 +365,7 @@ function AchievementsForm({ value, setResumeData, onOpenAIModal }) {
                           !!getFieldError(index, "organizerOrRank")
                         )}
                       />
+                      <CharacterCounter current={item.organizerOrRank?.length || 0} max={100} />
                     </FieldWrapper>
 
                     <FieldWrapper
@@ -546,4 +557,19 @@ function getInputClassName(hasError) {
   }`;
 }
 
-export default AchievementsForm;
+function CharacterCounter({ current, max }) {
+  const isClose = current > max * 0.85;
+  const isOver = current >= max;
+
+  return (
+    <p
+      className={`mt-1.5 text-right text-[11px] font-bold uppercase tracking-wider ${
+        isOver ? "text-red-600" : isClose ? "text-amber-600" : "text-slate-400"
+      }`}
+    >
+      {current} / {max} <span className="ml-1 opacity-60">chars</span>
+    </p>
+  );
+}
+
+export default AchievementsForm;

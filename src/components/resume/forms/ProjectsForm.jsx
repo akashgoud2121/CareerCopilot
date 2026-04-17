@@ -10,7 +10,7 @@ import {
   Trash2,
   Sparkles,
 } from "lucide-react";
-import { createEmptyProjectItem } from "../../../utils/resumeSchema";
+import { createEmptyProjectItem, isObjectiveText } from "../../../utils/resumeSchema";
 
 const PROJECT_TYPE_OPTIONS = [
   "Academic",
@@ -91,6 +91,13 @@ function validateProject(project) {
 
   if (!project.organization?.trim()) {
     errors.organization = "Organization / source is required.";
+  }
+
+  // Smart Validation for Objective-style text
+  if (isObjectiveText(project.title)) {
+    errors.title = "This looks like a summary or is too long (limit: 10 words). Please keep titles concise.";
+  } else if (isObjectiveText(project.organization)) {
+    errors.organization = "Organization name looks like a summary or exceeds 10 words. Please keep it concise.";
   }
 
   if (!project.startMonth) {
@@ -344,7 +351,7 @@ function ProjectsForm({ value, setResumeData, onOpenAIModal, showValidationError
                         type="text"
                         maxLength={100}
                         value={project.title || ""}
-                        placeholder="e.g., Your Project Title"
+                        placeholder="e.g. E-Commerce Platform / Portfolio Website / Blockchain Sys"
                         onChange={(e) => {
                           updateProject(project.clientKey, "title", e.target.value);
                           setTouched(true);

@@ -8,7 +8,7 @@ import {
   Trash2,
   Sparkles,
 } from "lucide-react";
-import { createEmptyCustomSectionItem } from "../../../utils/resumeSchema";
+import { createEmptyCustomSectionItem, isObjectiveText } from "../../../utils/resumeSchema";
 
 const MONTH_OPTIONS = [
   { label: "January", value: "January", number: 1 },
@@ -63,6 +63,13 @@ function validateCustomItem(item) {
 
   if (!item.title?.trim()) {
     errors.title = "Title is required.";
+  }
+
+  // Smart Validation for Objective-style text
+  if (isObjectiveText(item.title)) {
+    errors.title = "This looks like a summary or is too long (limit: 10 words). Please keep titles concise.";
+  } else if (isObjectiveText(item.subtitle)) {
+    errors.subtitle = "Subtitle looks like a summary or exceeds 10 words. Please keep it concise.";
   }
 
   if (!item.description?.trim()) {
@@ -260,8 +267,9 @@ function CustomSectionForm({
                     >
                       <input
                         type="text"
+                        maxLength={100}
                         value={item.title || ""}
-                        placeholder="e.g. Research Assistant"
+                        placeholder="e.g. Research Assistant / Volunteer"
                         onChange={(e) => {
                           updateItem(item.clientKey, "title", e.target.value);
                           setTouched(true);
@@ -270,6 +278,7 @@ function CustomSectionForm({
                           !!getFieldError(index, "title")
                         )}
                       />
+                      <CharacterCounter current={item.title?.length || 0} max={100} />
                     </FieldWrapper>
 
                     <FieldWrapper
@@ -279,6 +288,7 @@ function CustomSectionForm({
                     >
                       <input
                         type="text"
+                        maxLength={100}
                         value={item.subtitle || ""}
                         placeholder="e.g. Remote / Freelance / University"
                         onChange={(e) => {
@@ -289,6 +299,7 @@ function CustomSectionForm({
                           !!getFieldError(index, "subtitle")
                         )}
                       />
+                      <CharacterCounter current={item.subtitle?.length || 0} max={100} />
                     </FieldWrapper>
                   </div>
 
@@ -436,6 +447,21 @@ function getInputClassName(hasError) {
       ? "border-red-300 focus:border-red-500 focus:ring-red-100"
       : "border-slate-200 focus:border-[var(--color-primary)] focus:ring-[rgba(53,0,139,0.08)]"
   }`;
+}
+
+function CharacterCounter({ current, max }) {
+  const isClose = current > max * 0.85;
+  const isOver = current >= max;
+
+  return (
+    <p
+      className={`mt-1.5 text-right text-[11px] font-bold uppercase tracking-wider ${
+        isOver ? "text-red-600" : isClose ? "text-amber-600" : "text-slate-400"
+      }`}
+    >
+      {current} / {max} <span className="ml-1 opacity-60">chars</span>
+    </p>
+  );
 }
 
 export default CustomSectionForm;

@@ -9,7 +9,7 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
-import { createEmptyExperienceItem } from "../../../utils/resumeSchema";
+import { createEmptyExperienceItem, isObjectiveText } from "../../../utils/resumeSchema";
 
 const MONTH_OPTIONS = [
   "January",
@@ -62,6 +62,15 @@ function validateExperience(item) {
 
   if (!item.company?.trim()) {
     errors.company = "Company / organization is required.";
+  } else if (item.company.length > 100) {
+    errors.company = "Company name is too long (limit: 100 chars).";
+  }
+
+  // Smart Validation for Objective-style text
+  if (isObjectiveText(item.role)) {
+    errors.role = "This looks like a summary or is too long (limit: 10 words). Please keep titles concise (e.g. 'Software Engineer').";
+  } else if (isObjectiveText(item.company)) {
+    errors.company = "Company name looks like a summary or exceeds 10 words. Please keep it concise.";
   }
 
   if (!item.employmentType?.trim()) {
@@ -331,7 +340,7 @@ function ExperienceForm({ value, setResumeData, onOpenAIModal, showValidationErr
                           updateExperience(item.clientKey, "role", e.target.value);
                           setTouched(true);
                         }}
-                        placeholder="e.g., Software Engineer Intern"
+                        placeholder="e.g. Manual Tester / Software Engineer"
                         className={getInputClassName(!!getError(index, "role"))}
                       />
                       <CharacterCounter current={item.role?.length || 0} max={100} />
@@ -351,7 +360,7 @@ function ExperienceForm({ value, setResumeData, onOpenAIModal, showValidationErr
                           updateExperience(item.clientKey, "company", e.target.value);
                           setTouched(true);
                         }}
-                        placeholder="e.g., Company / Organization name"
+                        placeholder="e.g. Google / Microsoft / ABC Corp"
                         className={getInputClassName(!!getError(index, "company"))}
                       />
                       <CharacterCounter current={item.company?.length || 0} max={100} />

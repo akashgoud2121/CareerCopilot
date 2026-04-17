@@ -288,3 +288,41 @@ export const sortResumeItemsByDate = (items) => {
     return startB - startA;
   });
 };
+
+export function isObjectiveText(text) {
+  if (!text) return false;
+
+  const trimmedText = text.trim();
+  const lowerText = trimmedText.toLowerCase();
+  const words = trimmedText.split(/\s+/).filter(Boolean);
+
+  // 1. Reasonable word limit for a title (most titles are 2-6 words)
+  if (words.length > 10) return true;
+
+  // 2. High-confidence objective keywords (remove length guard for these)
+  const keywords = [
+    "to secure",
+    "looking for",
+    "seeking a",
+    "seeking an",
+    "position where",
+    "contribute my skills",
+    "gain experience",
+    "utilize my",
+    "career goal",
+    "professional goal",
+    "i am an",
+    "i am a ",
+    "where i can",
+    "ready to work",
+    "passionate about",
+    "highly motivated",
+    "aiming to",
+    "aims to",
+    "dedicated to",
+    "focused on",
+  ];
+
+  return keywords.some((keyword) => lowerText.includes(keyword));
+}
+
