@@ -1,0 +1,12 @@
+# https://www.robotstxt.org/robotstxt.html
+
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /builder
+Disallow: /resume-builder
+Disallow: /login
+Disallow: /signup
+Disallow: /auth/callback
+
+Sitemap: https://www.careercopilot.cognisysai.com/sitemap.xml
