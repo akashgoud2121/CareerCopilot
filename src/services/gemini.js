@@ -1,13 +1,40 @@
 import { GoogleGenAI } from "@google/genai";
 
+const AI_PROVIDERS = {
+  GEMINI: "gemini",
+  GROQ: "groq",
+};
+
+const STORAGE_KEYS = {
+  PROVIDER: "career_copilot_ai_provider",
+  GEMINI_KEY: "career_copilot_gemini_key",
+  GROQ_KEY: "career_copilot_groq_key",
+};
+
+const GROQ_MODEL = "llama-3.1-8b-instant";
+
 function getGeminiClient() {
-  const apiKey = localStorage.getItem("career_copilot_gemini_key");
+  const apiKey = localStorage.getItem(STORAGE_KEYS.GEMINI_KEY);
 
   if (!apiKey) {
-    throw new Error("Gemini API key not found in localStorage.");
+    throw new Error("Gemini API key not found. Please connect Gemini in settings.");
   }
 
   return new GoogleGenAI({ apiKey });
+}
+
+function getGroqConfig() {
+  const apiKey = localStorage.getItem(STORAGE_KEYS.GROQ_KEY);
+
+  if (!apiKey) {
+    throw new Error("Groq API key not found. Please connect Groq in settings.");
+  }
+
+  return { apiKey };
+}
+
+export function getAIProvider() {
+  return localStorage.getItem(STORAGE_KEYS.PROVIDER) || AI_PROVIDERS.GEMINI;
 }
 
 function extractText(response) {
@@ -27,6 +54,68 @@ export async function runGeminiBasicTest() {
   });
 
   return extractText(response);
+}
+
+export async function runGroqBasicTest(apiKey) {
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: GROQ_MODEL,
+      messages: [
+        {
+          role: "user",
+          content: "Reply with exactly this text only: GROQ_OK",
+        },
+      ],
+      temperature: 0.1,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData?.error?.message || "Groq connection failed.");
+  }
+
+  const data = await response.json();
+  return data?.choices?.[0]?.message?.content?.trim() || "";
+}
+
+async function callGroqAPI(prompt) {
+  const { apiKey } = getGroqConfig();
+
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: GROQ_MODEL,
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert resume writer. Generate polished, ATS-friendly content based on the user's data. Be concise and truthful.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      temperature: 0.7,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData?.error?.message || "AI generation failed (Groq).");
+  }
+
+  const data = await response.json();
+  return data?.choices?.[0]?.message?.content?.trim() || "";
 }
 
 function normalizeList(value) {
@@ -417,13 +506,19 @@ export async function generateResumeSection(
   userData = {},
   sectionFormData = {}
 ) {
-  const ai = getGeminiClient();
+  const provider = getAIProvider();
   const prompt = buildResumePrompt(sectionKey, userData, sectionFormData);
 
+  if (provider === "groq") {
+    return await callGroqAPI(prompt);
+  }
+
+  const ai = getGeminiClient();
   const response = await ai.models.generateContent({
     model: "gemini-2.5-flash",
     contents: prompt,
   });
+
 
   return extractText(response);
 }

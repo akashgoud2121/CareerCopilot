@@ -517,11 +517,11 @@ function GeminiModal({
         <div className="my-4 w-full max-w-4xl rounded-[26px] border border-slate-200 bg-white shadow-[0_24px_70px_rgba(15,23,42,0.18)]">
           <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 sm:px-6">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
-                AI Assistant
+               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                AI Career Assistant
               </p>
               <h2 className="mt-1 text-xl font-semibold text-[var(--color-primary)]">
-                Generate with AI
+                AI Smart Write
               </h2>
             </div>
 

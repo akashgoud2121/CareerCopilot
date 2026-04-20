@@ -624,16 +624,18 @@ function ResumeBuilder() {
           return;
         }
 
+        const aiProvider = localStorage.getItem("career_copilot_ai_provider") || "gemini";
         const geminiKey = localStorage.getItem("career_copilot_gemini_key");
+        const groqKey = localStorage.getItem("career_copilot_groq_key");
 
-        const onboardingDone = localStorage.getItem(
-          "career_copilot_onboarding_done"
-        );
+        const isAIConfigured = (aiProvider === "gemini" && geminiKey) || (aiProvider === "groq" && groqKey);
 
-        if (!geminiKey) {
+        if (!isAIConfigured) {
           navigate("/connect-gemini");
           return;
         }
+
+        const onboardingDone = localStorage.getItem("career_copilot_onboarding_done");
 
         if (onboardingDone !== "true") {
           navigate("/onboarding");

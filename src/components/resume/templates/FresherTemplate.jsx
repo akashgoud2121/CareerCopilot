@@ -297,7 +297,7 @@ const ExperienceSection = ({ items, fitConfig }) => {
   if (!items.length) return null;
   return (
     <section>
-      <SectionHeader title="Project Experience / Internships" fitConfig={fitConfig} />
+      <SectionHeader title="Experience / Internships" fitConfig={fitConfig} />
       <div style={{ display: "flex", flexDirection: "column", gap: `8px` }}>
         {items.map((item, index) => {
           const role = cleanInlineText(item?.role);
@@ -343,7 +343,7 @@ const ProjectsSection = ({ items, fitConfig }) => {
   if (!items.length) return null;
   return (
     <section>
-      <SectionHeader title="ACADEMIC PROJECTS" fitConfig={fitConfig} />
+      <SectionHeader title="PROJECTS" fitConfig={fitConfig} />
       <div style={{ display: "flex", flexDirection: "column", gap: `8px` }}>
         {items.map((item, index) => {
           const title = cleanInlineText(item?.title);

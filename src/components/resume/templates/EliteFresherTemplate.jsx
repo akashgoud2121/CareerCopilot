@@ -130,6 +130,25 @@ const SectionHeader = ({ title, fitConfig }) => (
   </div>
 );
 
+const SummarySection = ({ text, fitConfig }) => {
+  if (!text) return null;
+  return (
+    <section className="break-inside-avoid">
+       <SectionHeader title="PROFESSIONAL SUMMARY" fitConfig={fitConfig} />
+       <p style={{ 
+         margin: 0, 
+         fontSize: `${fitConfig.bodyFont + 1.5}px`, 
+         lineHeight: 1.25, 
+         color: "#000",
+         textAlign: "justify",
+         textJustify: "inter-word"
+       }}>
+         {text}
+       </p>
+    </section>
+  );
+};
+
 const ResumeHeader = ({ contact, fitConfig }) => {
   const fullName = cleanInlineText(contact?.fullName) || "YOUR NAME";
   
@@ -433,7 +452,10 @@ const EliteFresherTemplate = ({
     projects = [],
     certifications = [],
     achievements = [],
+    summary = {},
   } = resumeData || {};
+
+  const summaryText = cleanInlineText(summary?.text);
 
   const visibleSkillGroups = normalizeSkillGroups(skills);
   const visibleExperience = sortResumeItemsByDate(experience);
@@ -465,6 +487,8 @@ const EliteFresherTemplate = ({
         }}
       >
         <ResumeHeader contact={contact} fitConfig={fitConfig} />
+        
+        {summaryText && <SummarySection text={summaryText} fitConfig={fitConfig} />}
         
         {visibleSkillGroups.length > 0 && <SkillsSection groups={visibleSkillGroups} fitConfig={fitConfig} />}
         

@@ -1,20 +1,25 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../services/supabase";
-import { runGeminiBasicTest } from "../services/gemini";
+import { runGeminiBasicTest, runGroqBasicTest, getAIProvider } from "../services/gemini";
 import { IoCheckmarkCircleOutline, IoAlertCircleOutline } from "react-icons/io5";
 import { useAuth } from "../contexts/AuthContext";
 
 function ConnectGemini() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [apiKey, setApiKey] = useState("");
+  
+  const [provider, setProvider] = useState(getAIProvider());
+  const [geminiKey, setGeminiKey] = useState("");
+  const [groqKey, setGroqKey] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState(false);
   const [checkResult, setCheckResult] = useState(null);
   const [checkingUser, setCheckingUser] = useState(true);
   const [error, setError] = useState("");
+
+  const currentKey = provider === "gemini" ? geminiKey : groqKey;
 
   useEffect(() => {
     const checkUser = async () => {
@@ -23,22 +28,22 @@ function ConnectGemini() {
         return;
       }
 
+      const savedGeminiKey = localStorage.getItem("career_copilot_gemini_key");
+      const savedGroqKey = localStorage.getItem("career_copilot_groq_key");
 
-      const savedKey = localStorage.getItem("career_copilot_gemini_key");
-
-      if (savedKey) {
-        setApiKey(savedKey);
-      }
+      if (savedGeminiKey) setGeminiKey(savedGeminiKey);
+      if (savedGroqKey) setGroqKey(savedGroqKey);
 
       setCheckingUser(false);
     };
 
     checkUser();
-  }, [navigate]);
+  }, [navigate, user]);
 
   const handleTestKey = async () => {
-    if (!apiKey.trim()) {
-      setError("Please enter a key to test.");
+    const apiKey = currentKey.trim();
+    if (!apiKey) {
+      setError(`Please enter your ${provider === "gemini" ? "Gemini" : "Groq"} key to test.`);
       return;
     }
 
@@ -47,18 +52,19 @@ function ConnectGemini() {
     setError("");
 
     try {
-      localStorage.setItem("career_copilot_gemini_key", apiKey.trim());
-
-      const result = await runGeminiBasicTest();
+      let result;
+      if (provider === "gemini") {
+        localStorage.setItem("career_copilot_gemini_key", apiKey);
+        result = await runGeminiBasicTest();
+      } else {
+        result = await runGroqBasicTest(apiKey);
+      }
 
       setCheckResult({
         success: true,
-        message: `Connection successful! Gemini replied: ${result}`,
+        message: `Connection successful! ${provider === "gemini" ? "Gemini" : "Groq"} is ready.`,
       });
-
-      console.log("Gemini basic test result:", result);
     } catch (err) {
-      console.error("Test connection error:", err);
       setCheckResult({
         success: false,
         message: err.message || "Failed to connect. Please check your key and try again.",
@@ -72,23 +78,24 @@ function ConnectGemini() {
     e.preventDefault();
     setError("");
 
-    if (!apiKey.trim()) {
-      setError("Please enter your Gemini API key.");
-      return;
-    }
-
-    if (apiKey.trim().length < 20) {
-      setError("This does not look like a valid API key.");
+    const apiKey = currentKey.trim();
+    if (!apiKey) {
+      setError(`Please enter your ${provider === "gemini" ? "Gemini" : "Groq"} API key.`);
       return;
     }
 
     setLoading(true);
 
     try {
-      localStorage.setItem("career_copilot_gemini_key", apiKey.trim());
+      localStorage.setItem("career_copilot_ai_provider", provider);
+      if (provider === "gemini") {
+        localStorage.setItem("career_copilot_gemini_key", apiKey);
+      } else {
+        localStorage.setItem("career_copilot_groq_key", apiKey);
+      }
       navigate("/onboarding");
     } catch (err) {
-      setError("Failed to save API key. Please try again.");
+      setError("Failed to save configuration. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -115,11 +122,11 @@ function ConnectGemini() {
               <div className="lg:w-1/2">
                 <div className="inline-flex items-center gap-2 rounded-full bg-violet-100 px-4 py-1 text-xs font-bold uppercase tracking-wider text-violet-700">
                   <span className="h-2 w-2 rounded-full bg-violet-600 animate-pulse"></span>
-                  Start Here: Video Guide
+                  Start Here: Guide
                 </div>
-                <h3 className="mt-4 text-3xl font-bold text-slate-900">Watch the Setup Guide</h3>
+                <h3 className="mt-4 text-3xl font-bold text-slate-900">Choose your AI provider</h3>
                 <p className="mt-5 text-lg leading-relaxed text-slate-600">
-                  Follow this simple step to <strong>save 1000's of rupees</strong> on monthly AI subscriptions! By using your own key, most users can stay completely within the <strong>generous free tier</strong> provided by Google.
+                  Select between <strong>Google Gemini</strong> or <strong>Groq (Llama 3.1)</strong>. Both offer generous free tiers that help you build professional resumes at zero cost.
                 </p>
                 
                 <div className="mt-8 rounded-2xl border border-slate-100 bg-slate-50/30 p-5 ring-1 ring-slate-100">
@@ -128,9 +135,9 @@ function ConnectGemini() {
                       <span className="text-xl">⚡</span>
                     </div>
                     <div>
-                      <h4 className="font-extrabold text-slate-900">Reached your limit?</h4>
+                      <h4 className="font-extrabold text-slate-900">Why Groq?</h4>
                       <p className="mt-1 text-sm text-slate-600 leading-relaxed">
-                        If you use Gemini very heavily and hit a temporary limit, don't worry! Simply <strong>wait for a short while</strong> for your API key to "recharge" and it will start working again automatically.
+                        Groq is incredibly fast and powered by Meta's Llama models. It's a great alternative if you hit Gemini's temporary limits.
                       </p>
                     </div>
                   </div>
@@ -142,7 +149,7 @@ function ConnectGemini() {
                     width="100%"
                     height="100%"
                     src="https://www.youtube.com/embed/JIH9QU4ik9g?si=LCeKZ0TL90xaRdk9"
-                    title="How to get Gemini API Key"
+                    title="How to setup AI"
                     frameBorder="0"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     referrerPolicy="strict-origin-when-cross-origin"
@@ -155,58 +162,79 @@ function ConnectGemini() {
         </div>
 
         <div className="grid gap-8 lg:gap-12 lg:grid-cols-2">
-          <div className="flex flex-col justify-center">
-
+          <div className="flex flex-col">
             <h1 className="text-3xl font-bold leading-tight text-slate-900 md:text-5xl">
-              Connect your Gemini API key
+              Connect your AI Assistant
             </h1>
 
             <p className="mt-5 max-w-xl text-lg leading-8 text-slate-600">
-              Career Copilot uses Gemini to power resume writing and future career
-              support tools. Add your API key once and continue with your setup.
+              Select your preferred provider and add your API key once to continue with your setup.
             </p>
 
-
-            <div className="mt-6 rounded-3xl border border-slate-200 bg-[var(--color-bg-alt)] p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-slate-900">How to get your API key</h2>
-              <ol className="mt-4 list-decimal space-y-3 pl-4 text-sm leading-6 text-slate-600">
-                <li>
-                  Go to <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" className="font-medium text-[var(--color-primary)] hover:underline">Google AI Studio</a>.
-                </li>
-                <li>Click <strong>"Get API key"</strong> in the left sidebar.</li>
-                <li>Click the blue <strong>"Create API key"</strong> button.</li>
-                <li>Search for and select your Google Cloud project (or create a new one).</li>
-                <li>Copy the generated key (starts with <code>AIza...</code>) and paste it below.</li>
-              </ol>
+            <div className="mt-8 flex gap-4">
+              <button
+                onClick={() => setProvider("gemini")}
+                className={`flex-1 rounded-2xl py-3 text-sm font-bold transition-all ${
+                  provider === "gemini"
+                    ? "bg-[var(--color-primary)] text-white shadow-lg shadow-indigo-200"
+                    : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                Google Gemini
+              </button>
+              <button
+                onClick={() => setProvider("groq")}
+                className={`flex-1 rounded-2xl py-3 text-sm font-bold transition-all ${
+                  provider === "groq"
+                    ? "bg-[var(--color-primary)] text-white shadow-lg shadow-indigo-200"
+                    : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                Groq AI
+              </button>
             </div>
 
-            <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-semibold text-slate-900">Why we ask for this</h2>
-              <ul className="mt-4 space-y-3 text-sm leading-6 text-slate-600">
-                <li>• It helps power AI-assisted writing and suggestions.</li>
-                <li>• Your key is stored locally in your browser for now.</li>
-                <li>• Later, we can make this more secure with backend encryption.</li>
-              </ul>
+            <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="text-lg font-semibold text-slate-900">
+                How to get your {provider === "gemini" ? "Gemini" : "Groq"} key
+              </h2>
+              {provider === "gemini" ? (
+                <ol className="mt-4 list-decimal space-y-3 pl-4 text-sm leading-6 text-slate-600">
+                  <li>Visit <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" className="font-medium text-[var(--color-primary)] hover:underline">Google AI Studio</a> and sign in with your Google account.</li>
+                  <li>In the left sidebar, click the <strong>"Get API key"</strong> button (look for the key icon 🔑).</li>
+                  <li>Click on <strong>"Create API key"</strong> and select <strong>"Create API key in new project"</strong>.</li>
+                  <li>Wait for the key to be generated, then <strong>copy</strong> the key to your clipboard.</li>
+                  <li>Return here and paste the key in the input field below.</li>
+                </ol>
+              ) : (
+                <ol className="mt-4 list-decimal space-y-3 pl-4 text-sm leading-6 text-slate-600">
+                  <li>Visit the <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="font-medium text-[var(--color-primary)] hover:underline">Groq Cloud Console</a>.</li>
+                  <li>Sign in and click <strong>"Create API Key"</strong>.</li>
+                  <li>Name your key (e.g., "Career Copilot") and copy it.</li>
+                </ol>
+              )}
             </div>
           </div>
 
-          <div className="rounded-[24px] md:rounded-[28px] border border-slate-200 bg-white p-6 md:p-8 shadow-xl shadow-slate-200/60">
-            <h2 className="text-2xl font-semibold text-slate-900">Add Gemini API key</h2>
+          <div className="rounded-[24px] md:rounded-[28px] border border-slate-200 bg-white p-6 md:p-8 shadow-xl shadow-slate-200/60 h-fit">
+            <h2 className="text-2xl font-semibold text-slate-900">
+              Add {provider === "gemini" ? "Gemini" : "Groq"} API key
+            </h2>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Paste your Gemini API key below to continue.
+              Paste your {provider === "gemini" ? "Gemini" : "Groq"} API key below.
             </p>
 
             <form onSubmit={handleSave} className="mt-8 space-y-6">
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Gemini API Key
+                  {provider === "gemini" ? "Gemini" : "Groq"} API Key
                 </label>
                 <div className="flex items-center gap-3 rounded-2xl border border-slate-300 px-4 py-3 focus-within:border-[var(--color-primary)] focus-within:ring-2 focus-within:ring-[var(--color-primary)]/10">
                   <input
                     type={showKey ? "text" : "password"}
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="Paste your Gemini API key"
+                    value={currentKey}
+                    onChange={(e) => provider === "gemini" ? setGeminiKey(e.target.value) : setGroqKey(e.target.value)}
+                    placeholder={`Paste your ${provider === "gemini" ? "Gemini" : "Groq"} key`}
                     className="w-full border-none bg-transparent text-sm text-slate-800 outline-none"
                   />
                   <button
@@ -236,7 +264,7 @@ function ConnectGemini() {
               <button
                 type="button"
                 onClick={handleTestKey}
-                disabled={testing || !apiKey}
+                disabled={testing || !currentKey}
                 className="w-full rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
               >
                 {testing ? "Testing Connection..." : "Test Connection"}
@@ -277,4 +305,4 @@ function ConnectGemini() {
   );
 }
 
-export default ConnectGemini;
+export default ConnectGemini;
