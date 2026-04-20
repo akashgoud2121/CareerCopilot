@@ -1,7 +1,10 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useAuth } from "../../contexts/AuthContext";
 
 function CTASection() {
+  const { user } = useAuth();
+  
   return (
     <section className="bg-white px-6 pb-16 md:px-12 md:pb-24 lg:px-20">
       <div className="mx-auto max-w-7xl">
@@ -57,14 +60,14 @@ function CTASection() {
               className="mt-9 flex flex-col justify-center gap-4 sm:flex-row"
             >
               <Link
-                to="/login"
+                to={user ? "/dashboard" : "/login"}
                 className="rounded-2xl bg-white px-7 py-3.5 text-sm font-semibold text-[var(--color-text)] transition-all hover:scale-105 hover:bg-slate-50 active:scale-95"
               >
-                Login
+                {user ? "Go to Dashboard" : "Login"}
               </Link>
 
               <Link
-                to="/signup"
+                to={user ? "/dashboard" : "/signup"}
                 className="rounded-2xl border border-white/20 bg-white/5 px-7 py-3.5 text-sm font-semibold text-white transition-all hover:scale-105 hover:bg-white/10 active:scale-95"
               >
                 Create Resume

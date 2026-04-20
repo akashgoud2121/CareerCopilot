@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useAuth } from "../../contexts/AuthContext";
 import HeroImage from "../../assets/HeroPreviewImage.png";
 
 const fadeInUp = {
@@ -17,6 +18,8 @@ const staggerContainer = {
 };
 
 function HeroSection() {
+  const { user } = useAuth();
+  
   return (
     <section className="relative min-h-[calc(100vh-81px)] overflow-hidden bg-white px-6 md:px-12 lg:px-20">
       {/* Background decorative elements */}
@@ -64,7 +67,7 @@ function HeroSection() {
             className="mt-8 flex flex-col gap-4 sm:flex-row"
           >
             <Link
-              to="/signup"
+              to={user ? "/dashboard" : "/signup"}
               className="group relative overflow-hidden rounded-xl bg-[var(--color-primary)] px-8 py-4 text-center text-sm font-semibold text-white shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl active:scale-[0.98]"
             >
               <span className="relative z-10">Create Resume</span>

@@ -6,8 +6,10 @@ import {
   IoCheckmarkCircleOutline, 
   IoAlertCircleOutline 
 } from "react-icons/io5";
+import { useAuth } from "../../contexts/AuthContext";
 
 const ProfileSection = () => {
+  const { user } = useAuth();
   const [profile, setProfile] = useState({
     fullName: "",
     email: "",
@@ -19,8 +21,8 @@ const ProfileSection = () => {
   useEffect(() => {
     const loadUserData = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
+
 
         const { data: profileData } = await supabase
           .from("profiles")
@@ -38,9 +40,8 @@ const ProfileSection = () => {
         setLoading(false);
       }
     };
-
     loadUserData();
-  }, []);
+  }, [user]);
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
@@ -48,7 +49,6 @@ const ProfileSection = () => {
     setSaving(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
       const { error } = await supabase

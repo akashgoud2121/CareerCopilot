@@ -1,7 +1,10 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useAuth } from "../../contexts/AuthContext";
 
 function FeaturesSection() {
+  const { user } = useAuth();
+  
   const features = [
     {
       number: "01",
@@ -64,7 +67,7 @@ function FeaturesSection() {
               className="mt-8 flex flex-wrap gap-3"
             >
               <Link
-                to="/signup"
+                to={user ? "/dashboard" : "/signup"}
                 className="rounded-xl bg-[#344955] px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
               >
                 Try Builder Now

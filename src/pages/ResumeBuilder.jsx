@@ -8,6 +8,7 @@ import {
   loadResumeSectionByKey,
   loadResumeSectionsByKeys,
   saveResumeSectionsBatch,
+  getResumeContentHash,
 } from "../services/resumeBuilderApi";
 import ResumeSectionRenderer from "../components/resume/ResumeSectionRenderer";
 import GeminiModal from "../components/resume/GeminiModal";
@@ -19,10 +20,13 @@ import {
   requestResumeProjection,
   waitForProjectionCompletion,
 } from "../services/resumeProjectionJobsApi";
-import { fetchResumeReadModel } from "../services/resumeReadModelApi";
+import { fetchResumeReadModel, readModelToResumeData } from "../services/resumeReadModelApi";
 import { createResumeVersionSnapshot } from "../services/resumeVersionsApi";
+import { useResumeSyncOrchestrator } from "../hooks/useResumeSyncOrchestrator";
+import { useAuth } from "../contexts/AuthContext";
 
 function ResumeBuilder() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const hasInitializedRef = useRef(false);
   const backgroundSaveQueueRef = useRef(Promise.resolve());
@@ -38,8 +42,8 @@ function ResumeBuilder() {
   const [geminiModalSection, setGeminiModalSection] = useState(null);
   const [geminiModalContext, setGeminiModalContext] = useState(null);
   const [resumeId, setResumeId] = useState(null);
-  const [resumeTitle, setResumeTitle] = useState("");
   const [userId, setUserId] = useState(null);
+  const [targetCompany, setTargetCompany] = useState("");
 
   const [isSaving, setIsSaving] = useState(false);
   const [loadedSections, setLoadedSections] = useState(new Set());
@@ -59,6 +63,17 @@ function ResumeBuilder() {
 
   const prevStepRef = useRef(currentStep);
   const formContainerRef = useRef(null);
+
+  const getLatestResumeData = useCallback(() => ({ resumeData, customSections }), [resumeData, customSections]);
+  
+  const { requestSync, setInitialHash } = useResumeSyncOrchestrator({
+    resumeId,
+    userId,
+    getLatestResumeData,
+    setProjectionStatus,
+    setProjectionMessage,
+    setLatestProjectedVersion,
+  });
 
   const triggerValidationFeedback = (message) => {
     setShowValidationErrors(true);
@@ -326,7 +341,7 @@ function ResumeBuilder() {
 
   const saveDirtySections = useCallback(
     async (requestedKeys = Array.from(dirtySections), options = {}) => {
-      const { background = false } = options;
+      const { background = false, immediateProjection = false } = options;
 
       if (!resumeId || !userId) {
         return { ok: false, projectionJobId: null };
@@ -335,6 +350,9 @@ function ResumeBuilder() {
       const currentDirtyKeys = Array.from(dirtySections);
 
       if (currentDirtyKeys.length === 0) {
+        if (immediateProjection) {
+          await requestSync("forced_checkpoint (empty_keys)", { immediate: true });
+        }
         return { ok: true, projectionJobId: activeProjectionJobId };
       }
 
@@ -360,6 +378,9 @@ function ResumeBuilder() {
       keysToSave = normalizeDirtyKeysForSave(keysToSave);
 
       if (keysToSave.length === 0) {
+        if (immediateProjection) {
+          await requestSync("forced_checkpoint (no_keys_to_save)", { immediate: true });
+        }
         return { ok: true, projectionJobId: activeProjectionJobId };
       }
 
@@ -368,63 +389,30 @@ function ResumeBuilder() {
           setIsSaving(true);
         }
 
-        if (USE_ASYNC_PROJECTION) {
-          setProjectionStatus("saving");
-          setProjectionMessage(
-            background ? "Saving in background..." : "Saving changes..."
-          );
-
-          const syncResult = await saveResumeSectionsBatch({
-            sectionKeys: keysToSave,
-            resumeId,
-            userId,
-            resumeData,
-            customSections,
-            regenerateReadModel: true, // Always do a direct sync update
-          });
-
-          clearSavedDirtyKeys(keysToSave);
-
-          // IMMEDIATE FEEDBACK: Update version from the sync result
-          if (syncResult?.version) {
-            setLatestProjectedVersion(syncResult.version);
-          }
-
-          // SET STATUS TO UP_TO_DATE IMMEDIATELY
-          setProjectionStatus("up_to_date");
-          setProjectionMessage("Preview is up to date.");
-
-          return { ok: true, projectionJobId: null };
-        }
-
+        // 1. FAST PERSISTENCE (Fragmented tables)
         await saveResumeSectionsBatch({
           sectionKeys: keysToSave,
           resumeId,
           userId,
           resumeData,
           customSections,
-          regenerateReadModel: true,
+          regenerateReadModel: false, // DON'T regenerate full JSON yet
         });
 
         clearSavedDirtyKeys(keysToSave);
-        setActiveProjectionJobId(null);
 
-        const latestReadModel = await fetchResumeReadModel(resumeId);
-        if (
-          latestReadModel?.version !== undefined &&
-          latestReadModel?.version !== null
-        ) {
-          setLatestProjectedVersion(latestReadModel.version);
+        // 2. PROJECTION LOGIC
+        if (immediateProjection || currentSection?.key === 'review') {
+          await requestSync("forced_checkpoint", { immediate: true });
+        } else {
+          requestSync("debounce_edit", { immediate: false });
         }
-
-        setProjectionStatus("up_to_date");
-        setProjectionMessage("Preview is up to date.");
 
         return { ok: true, projectionJobId: null };
       } catch (error) {
         console.error("Dirty section save failed:", error);
         setProjectionStatus("error");
-        setProjectionMessage("Failed to save your changes.");
+        setProjectionMessage("Failed to save changes.");
         return { ok: false, projectionJobId: null };
       } finally {
         if (!background) {
@@ -441,7 +429,8 @@ function ResumeBuilder() {
       resumeData,
       resumeId,
       userId,
-      USE_ASYNC_PROJECTION,
+      currentSection?.key,
+      requestSync
     ]
   );
 
@@ -626,21 +615,17 @@ function ResumeBuilder() {
   );
 
   useEffect(() => {
-    if (hasInitializedRef.current) return;
-    hasInitializedRef.current = true;
-
     const initPage = async () => {
+      if (hasInitializedRef.current) return;
+      hasInitializedRef.current = true;
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
         if (!user) {
           navigate("/login");
           return;
         }
 
         const geminiKey = localStorage.getItem("career_copilot_gemini_key");
+
         const onboardingDone = localStorage.getItem(
           "career_copilot_onboarding_done"
         );
@@ -665,28 +650,36 @@ function ResumeBuilder() {
           customSections: loadedCustomSections,
           resumeData: loadedResumeData,
           loadedSectionKeys,
+          version,
+          hash,
+          templateName,
+          targetCompany: loadedTargetCompany
         } = await initializeResumeBuilder(user, {
-          lazy: true,
           resumeId: urlResumeId,
         });
 
-        // Also fetch the title and template_name from the resumes table
-        const { data: resumeRow } = await supabase
-          .from("resumes")
-          .select("title, template_name")
-          .eq("id", primaryResumeId)
-          .single();
-
         setResumeId(primaryResumeId);
-        setResumeTitle(resumeRow?.title || "My Resume");
         setUserId(loadedUserId);
         setCustomSections(loadedCustomSections);
-        setResumeData({
-          ...loadedResumeData,
-          template_name: resumeRow?.template_name || "classic",
-        });
         setLoadedSections(new Set(loadedSectionKeys));
         setDirtySections(new Set());
+
+        setTargetCompany(loadedTargetCompany || "");
+        
+        setResumeData({
+          ...loadedResumeData,
+          template_name: templateName || "classic",
+        });
+
+        // Seed synchronizer directly.
+        if (version !== undefined && version !== null) {
+          setLatestProjectedVersion(version);
+          if (hash) {
+            setInitialHash(hash, version);
+          }
+        } else {
+          await requestSync("bootstrap_missing", { immediate: true });
+        }
 
         if (urlAction === "download" || urlAction === "magic") {
           const totalLength = RESUME_SECTIONS.length + loadedCustomSections.length + 1;
@@ -698,12 +691,11 @@ function ResumeBuilder() {
         setCheckingAccess(false);
       }
     };
-
     initPage();
   }, [navigate]);
 
   useEffect(() => {
-    if (!resumeId || !currentSection?.key) return;
+    if (checkingAccess || !resumeId || !currentSection?.key) return;
 
     if (currentSection.key === "review") {
       if (missingReviewSectionKeys.length > 0) {
@@ -719,11 +711,12 @@ function ResumeBuilder() {
     ensureSectionsLoaded,
     missingReviewSectionKeys.join(","),
     resumeId,
+    checkingAccess,
   ]);
 
   // Preload next section data in the background for smooth transitions
   useEffect(() => {
-    if (!resumeId || currentStep >= allSections.length - 1) return;
+    if (checkingAccess || !resumeId || currentStep >= allSections.length - 1) return;
     
     const nextSection = allSections[currentStep + 1];
     if (nextSection && nextSection.key !== "review") {
@@ -733,91 +726,9 @@ function ResumeBuilder() {
       }, 1500);
       return () => clearTimeout(timer);
     }
-  }, [currentStep, allSections, ensureSectionLoaded, resumeId]);
+  }, [currentStep, allSections, ensureSectionLoaded, resumeId, checkingAccess]);
 
-  // Initial status check specifically for when entering the Review section.
-  // This replaces the previous constant polling that was causing redundant traffic.
-  useEffect(() => {
-    if (!resumeId || currentSection?.key !== "review") return;
-    
-    // Check for latest job once on entry.
-    const syncOnReviewEntry = async () => {
-      const { data: latestJob } = await supabase
-        .from("resume_projection_jobs")
-        .select("id, status")
-        .eq("resume_id", resumeId)
-        .order("id", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (latestJob && (latestJob.status === "queued" || latestJob.status === "processing")) {
-        setActiveProjectionJobId(latestJob.id);
-      }
-      
-      // Fetch the latest read model to ensure local state is most recent
-      const readModel = await fetchResumeReadModel(resumeId);
-      if (readModel?.version) {
-        setLatestProjectedVersion(readModel.version);
-      }
-    };
-
-    syncOnReviewEntry();
-  }, [currentSection?.key, resumeId]);
-
-  // Realtime subscription for projection state - replaces redundant polling
-  useEffect(() => {
-    if (!shouldTrackProjection || !resumeId) return;
-
-    let channel = null;
-
-    const setupRealtime = async () => {
-      // 1. Initial manual check to ensure we have the absolute latest status
-      await refreshProjectionState(activeProjectionJobId);
-
-      // 2. Subscribe to realtime updates for this resume's projection jobs
-      channel = supabase
-        .channel(`projection-jobs-${resumeId}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*', // Listen to inserts and updates
-            schema: 'public',
-            table: 'resume_projection_jobs',
-            filter: `resume_id=eq.${resumeId}`
-          },
-          (payload) => {
-            // When a job record is updated or created, refresh our state
-            const newJob = payload.new;
-            if (newJob) {
-              if (newJob.status === 'completed' || newJob.status === 'error') {
-                // If it's a final state, refresh the state and set active job to null
-                refreshProjectionState(newJob.id);
-                if (newJob.id === activeProjectionJobId) {
-                  setActiveProjectionJobId(null);
-                }
-              } else if (newJob.status === 'processing' || newJob.status === 'queued') {
-                // If it's starting, track it
-                setActiveProjectionJobId(newJob.id);
-                setProjectionStatus("updating");
-              }
-            }
-          }
-        )
-        .subscribe();
-    };
-
-    setupRealtime();
-
-    // Fallback polling (very slow) in case realtime fails or socket disconnects
-    const fallbackId = setInterval(() => {
-      refreshProjectionState(activeProjectionJobId);
-    }, 15000); // Once every 15s is enough for a fallback
-
-    return () => {
-      if (channel) supabase.removeChannel(channel);
-      clearInterval(fallbackId);
-    };
-  }, [activeProjectionJobId, refreshProjectionState, shouldTrackProjection, resumeId]);
+  // (Removed redundant projection tracking useEffects to save network requests)
 
   const handleAddCustomSection = () => {
     const trimmed = newSectionName.trim();
@@ -861,7 +772,6 @@ function ResumeBuilder() {
     setShowAddSectionInput(false);
 
     // Auto-navigate to the newly created section which will be at RESUME_SECTIONS.length + current customSections.length
-    queueCurrentSectionBackgroundSave();
     setShowValidationErrors(false);
     
     // We use setTimeout to allow state (like customSections) to update before changing the step, 
@@ -1244,34 +1154,60 @@ function ResumeBuilder() {
     return true;
   }, [currentSection?.key, currentSection?.label, validateSectionDataByKey]);
 
-
-
-
-
-  const handleGoToSection = (index) => {
+  const handleGoToSection = async (index) => {
     if (index === currentStep) return;
     if (!checkValidationBeforeStepChange(index)) return;
 
     setShowValidationErrors(false);
-    queueCurrentSectionBackgroundSave();
+    
+    // NAVIGATION SAVE: Persist the section the user is LEAVING
+    // If moving to Review, trigger an immediate full-document sync
+    const isMovingToReview = allSections[index]?.key === "review";
+    
+    if (currentSection?.key && dirtySections.has(currentSection.key)) {
+      await saveDirtySections([currentSection.key], { 
+        background: true, 
+        immediateProjection: isMovingToReview 
+      });
+    } else if (isMovingToReview) {
+      // Even if nothing is dirty in the current section, we might have 
+      // other pending dirty sections from earlier. Force a sync for Review.
+      await requestSync("review_navigation", { immediate: true });
+    }
+
     setCurrentStep(index);
     window.scrollTo({ top: 0, behavior: "auto" });
   };
 
-  const goToPrevious = () => {
-    queueCurrentSectionBackgroundSave();
+  const goToPrevious = async () => {
+    // NAVIGATION SAVE: Persist current section before leaving
+    if (currentSection?.key && dirtySections.has(currentSection.key)) {
+      await saveDirtySections([currentSection.key], { background: true });
+    }
     setCurrentStep((prev) => Math.max(prev - 1, 0));
     window.scrollTo({ top: 0, behavior: "auto" });
   };
 
-  const goToNext = () => {
+  const goToNext = async () => {
     const nextStep = Math.min(currentStep + 1, allSections.length - 1);
+    const isMovingToReview = allSections[nextStep]?.key === "review";
+
     if (!checkValidationBeforeStepChange(nextStep)) return;
 
     setShowValidationErrors(false);
+
+    // NAVIGATION SAVE: Persist current section before leaving
+    if (currentSection?.key && dirtySections.has(currentSection.key)) {
+      await saveDirtySections([currentSection.key], { 
+        background: true,
+        immediateProjection: isMovingToReview
+      });
+    } else if (isMovingToReview) {
+      await requestSync("review_navigation", { immediate: true });
+    }
+
     setCurrentStep(nextStep);
     window.scrollTo({ top: 0, behavior: "auto" });
-    queueCurrentSectionBackgroundSave();
   };
 
   const renderActionButtons = ({ compact = false } = {}) => {
@@ -1342,20 +1278,22 @@ function ResumeBuilder() {
       <div className="mx-auto max-w-7xl px-4 py-4 sm:px-5 sm:py-5 md:px-6 lg:px-8 xl:px-10">
         <div className="mb-5 xl:hidden">
           <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  {resumeTitle}
-                </p>
-                <p className="mt-0.5 truncate text-sm font-semibold text-[var(--color-primary)]">
-                  {currentSection?.label}
-                </p>
-              </div>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="inline-flex items-center rounded-full bg-violet-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--color-primary)] border border-violet-100 shadow-sm">
+                    Resume Builder
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-[var(--color-primary)]">
+                      {currentSection?.label}
+                    </p>
+                  </div>
+                </div>
 
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                {currentStep + 1} / {allSections.length}
-              </span>
-            </div>
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                  {currentStep + 1} / {allSections.length}
+                </span>
+              </div>
 
             <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-slate-100">
               <div
@@ -1595,27 +1533,16 @@ function ResumeBuilder() {
               <div className="flex flex-col gap-5">
                 <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
                   <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-[var(--color-primary)]/8 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-primary)]">
+                    <div className="flex items-center gap-3">
+                      <span className="inline-flex items-center rounded-full bg-violet-50 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--color-primary)] border border-violet-100 shadow-sm">
                         Resume Builder
                       </span>
-
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-800 border border-slate-200">
-                        {resumeTitle}
+                      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-500">
+                        Section {currentStep + 1} / {allSections.length}
                       </span>
-
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                        Step {currentStep + 1} of {allSections.length}
-                      </span>
-
-                      {dirtySections.size > 0 && (
-                        <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
-                          Unsaved changes: {dirtySections.size}
-                        </span>
-                      )}
                     </div>
 
-                    <h2 className="mt-3 text-lg font-semibold text-[var(--color-text)] sm:text-xl">
+                    <h2 className="mt-4 text-lg font-semibold text-[var(--color-text)] sm:text-xl">
                       {currentSection?.label}
                     </h2>
 
@@ -1633,26 +1560,6 @@ function ResumeBuilder() {
                   </div>
 
                   <div className="flex min-w-0 flex-col gap-3 xl:items-end">
-                    <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-                      <span
-                        className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${getProjectionBadgeClasses()}`}
-                      >
-                        {getProjectionBadgeText()}
-                      </span>
-
-                      {latestProjectedVersion !== null ? (
-                        <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-medium text-[var(--color-muted)]">
-                          Version {latestProjectedVersion}
-                        </span>
-                      ) : null}
-                    </div>
-
-                    {projectionMessage ? (
-                      <p className="max-w-xl text-sm text-[var(--color-muted)] xl:text-right">
-                        {projectionMessage}
-                      </p>
-                    ) : null}
-
                     {renderActionButtons()}
                   </div>
                 </div>
@@ -1671,7 +1578,13 @@ function ResumeBuilder() {
               {currentSection?.key === "review" ? (
                 <ResumePreview
                   resumeId={resumeId}
-                  isSyncing={loadingSections.size > 0} // Syncing is now just a subtle indicator
+                  targetCompany={targetCompany}
+                  onForceSync={() => requestSync("manual_refresh", { immediate: true })}
+                  isSyncing={projectionStatus === "updating"}
+                  projectionStatus={projectionStatus}
+                  projectionMessage={projectionMessage}
+                  latestProjectedVersion={latestProjectedVersion}
+                  onTemplateChange={handleTemplateChange}
                   resumeData={{
                     ...resumeData,
                     customSections: customSections.map((cs) => ({
@@ -1680,15 +1593,11 @@ function ResumeBuilder() {
                       content: resumeData[cs.key] || [],
                     })),
                   }}
-                  projectionStatus={projectionStatus}
-                  projectionMessage={projectionMessage}
-                  latestProjectedVersion={latestProjectedVersion}
-                  onTemplateChange={handleTemplateChange}
                 />
-              ) : isCurrentSectionLoading ? (
+              ) : isCurrentSectionLoading || !currentSection ? (
                 <div className="flex min-h-[240px] items-center justify-center">
                   <p className="text-sm font-medium text-[var(--color-muted)]">
-                    Loading {currentSection?.label?.toLowerCase()}...
+                    {!currentSection ? "Preparing section..." : `Loading ${currentSection?.label?.toLowerCase()}...`}
                   </p>
                 </div>
               ) : (

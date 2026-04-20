@@ -550,30 +550,43 @@ function GeminiModal({
 
               {isSummarySection ? (
                 <div className="space-y-4">
-                  {/* Automated Context Note */}
-                  <div className="rounded-2xl border border-violet-100 bg-violet-50/50 p-4 transition-all hover:bg-violet-50">
-                    <div className="flex items-start gap-3">
-                      <div className="mt-0.5 rounded-full bg-violet-100 p-1.5 text-[var(--color-primary)]">
-                        <Sparkles size={14} />
-                      </div>
-                      <div>
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-violet-600">
-                          Profile Context Applied
-                        </p>
-                        <p className="mt-1 text-sm font-medium leading-relaxed text-slate-700">
-                          Generating based on your profile as a{" "}
-                          <span className="font-bold text-slate-900">{userData.onboarding?.targetRole || "Professional"}</span>
-                          {userData.onboarding?.experienceLevel ? ` (${userData.onboarding.experienceLevel})` : ""}
-                          {userData.onboarding?.currentStatus ? ` in ${userData.onboarding.currentStatus} status.` : "."}
-                        </p>
-                        {userData.onboarding?.education && (
-                          <p className="mt-1.5 text-[12px] text-slate-500 italic">
-                            Background: {userData.onboarding.education}
-                          </p>
-                        )}
-                      </div>
-                    </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <CompactField label="Target Role" required>
+                      <input
+                        type="text"
+                        value={summaryForm.targetRole}
+                        onChange={(e) =>
+                          handleSummaryFieldChange("targetRole", e.target.value)
+                        }
+                        placeholder="e.g. Backend Developer"
+                        className={inputClassName()}
+                      />
+                    </CompactField>
+
+                    <CompactField label="Experience / Status">
+                      <input
+                        type="text"
+                        value={summaryForm.currentStatus}
+                        onChange={(e) =>
+                          handleSummaryFieldChange("currentStatus", e.target.value)
+                        }
+                        placeholder="e.g. Fresher / Student / 3+ Years Exp"
+                        className={inputClassName()}
+                      />
+                    </CompactField>
                   </div>
+
+                  <CompactField label="Background / Education (Optional)">
+                    <input
+                      type="text"
+                      value={summaryForm.education}
+                      onChange={(e) =>
+                        handleSummaryFieldChange("education", e.target.value)
+                      }
+                      placeholder="e.g. B.Tech Computer Science, Coding Bootcamp..."
+                      className={inputClassName()}
+                    />
+                  </CompactField>
 
                   <CompactField label="Top Skills" required>
                     <textarea

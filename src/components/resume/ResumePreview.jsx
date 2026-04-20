@@ -11,6 +11,7 @@ import ClassicTemplate from "./templates/ClassicTemplate";
 import ModernTemplate from "./templates/ModernTemplate";
 import MinimalTemplate from "./templates/MinimalTemplate";
 import FresherTemplate from "./templates/FresherTemplate";
+import EliteFresherTemplate from "./templates/EliteFresherTemplate";
 import {
   fetchResumeReadModel,
   readModelToResumeData,
@@ -109,6 +110,11 @@ const TEMPLATES = [
     name: "Fresher Focused",
     desc: "Optimized for students and entry-level roles with academic layout.",
   },
+  {
+    id: "elite_fresher",
+    name: "Elite Fresher",
+    desc: "Premium hybrid layout with skills-first focus and combined achievements.",
+  },
 ];
 
 const waitForFrames = async (count = 2) => {
@@ -117,46 +123,20 @@ const waitForFrames = async (count = 2) => {
   }
 };
 
-const getPreviewStatusMeta = (status) => {
-  if (status === "up_to_date") {
-    return {
-      title: "Preview is current",
-      textClass: "text-emerald-700",
-      pillClass: "bg-emerald-50 text-emerald-700 border border-emerald-200",
-    };
-  }
 
-  if (status === "saving" || status === "updating") {
-    return {
-      title: status === "saving" ? "Saving changes..." : "Refreshing preview...",
-      textClass: "text-amber-700",
-      pillClass: "bg-amber-50 text-amber-700 border border-amber-200",
-    };
-  }
-
-  if (status === "error") {
-    return {
-      title: "Preview may be stale",
-      textClass: "text-rose-700",
-      pillClass: "bg-rose-50 text-rose-700 border border-rose-200",
-    };
-  }
-
-  return {
-    title: "Live editing mode",
-    textClass: "text-slate-600",
-    pillClass: "bg-slate-100 text-slate-600 border border-slate-200",
-  };
-};
 
 export default function ResumePreview({
   resumeData,
   resumeId,
+  targetCompany = "",
   isSyncing = false,
+  isSaving = false,
+  hasPendingProjection = false,
   projectionStatus = "idle",
   projectionMessage = "",
   latestProjectedVersion = null,
   onTemplateChange,
+  onForceSync,
 }) {
   const safeResumeData = useMemo(() => resumeData || {}, [resumeData]);
   const latestLiveDataRef = useRef(safeResumeData);
@@ -168,7 +148,6 @@ export default function ResumePreview({
       setTemplate(safeResumeData.template_name);
     }
   }, [safeResumeData.template_name]);
-
   const [fitIndex, setFitIndex] = useState(1); // Standard starts at Index 1
   const [viewScale, setViewScale] = useState(1);
   const [needsMultiPage, setNeedsMultiPage] = useState(false);
@@ -180,29 +159,11 @@ export default function ResumePreview({
   const pageRef = useRef(null);
   const wrapperRef = useRef(null);
 
-  const statusMeta = getPreviewStatusMeta(projectionStatus);
+
   const fitConfig = FIT_PRESETS[fitIndex];
 
-  const [targetCompany, setTargetCompany] = useState("");
-
-  useEffect(() => {
-    const fetchCompany = async () => {
-      if (!resumeId) return;
-      try {
-        const { data, error } = await supabase
-          .from("resumes")
-          .select("target_job_id, saved_jobs(company_name)")
-          .eq("id", resumeId)
-          .single();
-        if (!error && data?.saved_jobs?.company_name) {
-          setTargetCompany(data.saved_jobs.company_name);
-        }
-      } catch (err) {
-        console.error("Failed to fetch target company", err);
-      }
-    };
-    fetchCompany();
-  }, [resumeId]);
+  const scaledPreviewWidth = Math.round(PAPER_WIDTH * viewScale);
+  const scaledPreviewHeight = Math.round(PAPER_HEIGHT * viewScale);
 
   const isDataComplete = useMemo(() => {
     if (!safeResumeData.contact?.fullName) return false;
@@ -218,9 +179,6 @@ export default function ResumePreview({
 
   // Export is blocked only by active generation/printing, not by background syncing
   const exportInProgress = isPreparingPdf || isPrinting;
-
-  const scaledPreviewWidth = Math.round(PAPER_WIDTH * viewScale);
-  const scaledPreviewHeight = Math.round(PAPER_HEIGHT * viewScale);
 
   useEffect(() => {
     latestLiveDataRef.current = safeResumeData;
@@ -263,6 +221,8 @@ export default function ResumePreview({
         return <MinimalTemplate {...props} />;
       case "fresher":
         return <FresherTemplate {...props} />;
+      case "elite_fresher":
+        return <EliteFresherTemplate {...props} />;
       default:
         return <ClassicTemplate {...props} />;
     }
@@ -399,6 +359,11 @@ export default function ResumePreview({
 
     try {
       setIsPreparingPdf(true);
+      
+      // Ensure the read model is up to date before generation
+      if (onForceSync) {
+        await onForceSync();
+      }
 
       // 1. Create a hidden iframe
       const iframe = document.createElement("iframe");
@@ -540,13 +505,13 @@ export default function ResumePreview({
           </div>
         </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-           <div className="flex items-center gap-2">
-            <div className={`h-2 w-2 rounded-full ${projectionStatus === 'up_to_date' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-amber-500 animate-pulse'}`} />
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-              {statusMeta.title}
-            </p>
+        <div className="flex items-center justify-center gap-2 p-2">
+          <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-all duration-300 ${ (isSaving || isSyncing) ? 'bg-emerald-50 text-emerald-400 animate-pulse' : 'bg-emerald-100 text-emerald-600 shadow-sm' }`}>
+            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
           </div>
+          <span className="text-[11px] font-bold uppercase tracking-widest text-emerald-600">synced</span>
         </div>
 
         <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -579,15 +544,13 @@ export default function ResumePreview({
               <h3 className="mt-1 text-2xl font-bold tracking-tight text-slate-800">
                 {TEMPLATES.find((item) => item.id === template)?.name || "Classic ATS"}
               </h3>
-              
-              {isSyncing && (
-                <div className="absolute -top-6 left-0 flex items-center gap-2">
-                   <div className="h-1.5 w-1.5 animate-ping rounded-full bg-indigo-500" />
-                   <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-500">
-                     Synchronizing sections...
-                   </span>
-                </div>
+              {targetCompany && (
+                <p className="mt-1 text-xs font-medium text-[var(--color-primary)]">
+                  Building for <span className="font-bold">{targetCompany}</span>
+                </p>
               )}
+              
+
             </div>
 
             <div className="flex items-center gap-3">

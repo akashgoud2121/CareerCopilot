@@ -3,8 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../services/supabase";
 import { runGeminiBasicTest } from "../services/gemini";
 import { IoCheckmarkCircleOutline, IoAlertCircleOutline } from "react-icons/io5";
+import { useAuth } from "../contexts/AuthContext";
 
 function ConnectGemini() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
@@ -16,14 +18,11 @@ function ConnectGemini() {
 
   useEffect(() => {
     const checkUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
       if (!user) {
         navigate("/login");
         return;
       }
+
 
       const savedKey = localStorage.getItem("career_copilot_gemini_key");
 

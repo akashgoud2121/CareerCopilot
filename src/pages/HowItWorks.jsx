@@ -9,14 +9,15 @@ import {
   IoShieldCheckmarkOutline, 
   IoRocketOutline 
 } from "react-icons/io5";
+import { useAuth } from "../contexts/AuthContext";
 
 function HowItWorks() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     const checkStatus = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setChecking(false);
         return;
@@ -26,7 +27,7 @@ function HowItWorks() {
     };
 
     checkStatus();
-  }, [navigate]);
+  }, [user, navigate]);
 
   const features = [
     {

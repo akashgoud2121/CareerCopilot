@@ -3,8 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../services/supabase";
 import { ensureProfileAndResume } from "../services/resumeBuilderApi";
 import { IoArrowBack } from "react-icons/io5";
+import { useAuth } from "../contexts/AuthContext";
 
 function Onboarding() {
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -21,10 +23,6 @@ function Onboarding() {
 
   useEffect(() => {
     const checkAccess = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
       if (!user) {
         navigate("/login");
         return;
@@ -33,6 +31,12 @@ function Onboarding() {
       const geminiKey = localStorage.getItem("career_copilot_gemini_key");
       if (!geminiKey) {
         navigate("/connect-gemini");
+        return;
+      }
+
+      const onboardingDone = localStorage.getItem("career_copilot_onboarding_done");
+      if (onboardingDone === "true") {
+        navigate("/dashboard", { replace: true });
         return;
       }
 
@@ -48,13 +52,16 @@ function Onboarding() {
             fullName: onboardingData.full_name || "",
             education: onboardingData.education || "",
             currentStatus: onboardingData.current_status || "",
-            targetRole: onboardingData.target_role || "",
+            target_role: onboardingData.target_role || "",
             experienceLevel: onboardingData.experience_level || "",
             mainGoal: onboardingData.main_goal || "",
           };
           setFormData(processed);
           localStorage.setItem("career_copilot_onboarding_data", JSON.stringify(processed));
           localStorage.setItem("career_copilot_onboarding_done", "true");
+          
+          navigate("/dashboard", { replace: true });
+          return;
         } else {
           const savedData = localStorage.getItem("career_copilot_onboarding_data");
           if (savedData) {
@@ -88,7 +95,6 @@ function Onboarding() {
     setLoading(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No user found");
 
       // 1. Ensure profile exists to avoid foreign key violations

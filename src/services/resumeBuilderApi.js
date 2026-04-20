@@ -1,6 +1,6 @@
-import { supabase } from "./supabase";
+﻿import { supabase } from "./supabase";
 import { createEmptyResumeData } from "../utils/resumeSchema";
-import { upsertResumeReadModel } from "./resumeReadModelApi";
+import { upsertResumeReadModel, fetchResumeReadModelAsPayload } from "./resumeReadModelApi";
 
 
 export const CUSTOM_SECTIONS_META_DIRTY_KEY = "__custom_sections_meta__";
@@ -327,13 +327,13 @@ export const ensureProfileAndResume = async (user) => {
 
   const { data: existingResume, error: resumeFetchError } = await supabase
     .from("resumes")
-    .select("*")
+    .select("*, saved_jobs(company_name)")
     .eq("user_id", user.id)
     .eq("is_primary", true)
     .maybeSingle();
 
   if (resumeFetchError) throw resumeFetchError;
-  if (existingResume) return existingResume.id;
+  if (existingResume) return existingResume;
 
   const { data: insertedResume, error: resumeInsertError } = await supabase
     .from("resumes")
@@ -344,26 +344,26 @@ export const ensureProfileAndResume = async (user) => {
       resume_status: "draft",
       is_primary: true,
     })
-    .select()
+    .select("*, saved_jobs(company_name)")
     .single();
 
   if (resumeInsertError) {
     if (resumeInsertError.code === "23505") {
       const { data: retryResume, error: retryError } = await supabase
         .from("resumes")
-        .select("*")
+        .select("*, saved_jobs(company_name)")
         .eq("user_id", user.id)
         .eq("is_primary", true)
         .maybeSingle();
 
       if (retryError) throw retryError;
-      if (retryResume) return retryResume.id;
+      if (retryResume) return retryResume;
     }
 
     throw resumeInsertError;
   }
 
-  return insertedResume.id;
+  return insertedResume;
 };
 
 const loadResumeCoreSections = async (resumeId) => {
@@ -614,34 +614,27 @@ const syncListTable = async ({ resumeId, tableName, items, mapItem }) => {
       })
     );
 
-  const { data: existingRows, error: existingError } = await supabase
-    .from(tableName)
-    .select("client_key")
-    .eq("resume_id", resumeId);
-
-  if (existingError) throw existingError;
-
-  const existingKeys = getArray(existingRows).map((row) => row.client_key);
   const incomingKeys = rows.map((row) => row.client_key);
-  const deleteKeys = existingKeys.filter((key) => !incomingKeys.includes(key));
-
-  if (deleteKeys.length > 0) {
-    const { error: deleteError } = await supabase
-      .from(tableName)
-      .delete()
-      .eq("resume_id", resumeId)
-      .in("client_key", deleteKeys);
-
-    if (deleteError) throw deleteError;
-  }
 
   if (rows.length > 0) {
+    // 1. Core Upsert - Single Network Request
     const { error: upsertError } = await supabase.from(tableName).upsert(rows, {
       onConflict: "resume_id,client_key",
     });
 
     if (upsertError) throw upsertError;
-  } else if (existingKeys.length > 0) {
+
+    // 2. Deterministic Cleanup - Single Network Request without pre-read
+    const excludeString = `(${incomingKeys.map(k => `"${k}"`).join(",")})`;
+    const { error: deleteError } = await supabase
+      .from(tableName)
+      .delete()
+      .eq("resume_id", resumeId)
+      .not("client_key", "in", excludeString);
+
+    if (deleteError) throw deleteError;
+  } else {
+    // 3. Complete Wipe - Only fires if intentional empty state
     const { error: clearError } = await supabase
       .from(tableName)
       .delete()
@@ -760,19 +753,13 @@ const saveSkillsSection = async ({ resumeId, resumeData }) => {
     (item) => item.category || item.customCategory || parseSkillString(item.skills).length > 0
   );
 
+  // Still need to delete current items because we are re-inserting them based on re-calculated category IDs
   const { error: deleteSkillItemsError } = await supabase
     .from("resume_skill_items")
     .delete()
     .eq("resume_id", resumeId);
 
   if (deleteSkillItemsError) throw deleteSkillItemsError;
-
-  const { data: existingCategories, error: existingCategoriesError } = await supabase
-    .from("resume_skill_categories")
-    .select("client_key")
-    .eq("resume_id", resumeId);
-
-  if (existingCategoriesError) throw existingCategoriesError;
 
   const categoryRows = normalizedSkillGroups.map((item, index) => ({
     resume_id: resumeId,
@@ -783,60 +770,57 @@ const saveSkillsSection = async ({ resumeId, resumeData }) => {
   }));
 
   const incomingKeys = categoryRows.map((row) => row.client_key);
-  const existingKeys = getArray(existingCategories).map((row) => row.client_key);
-  const deleteCategoryKeys = existingKeys.filter((key) => !incomingKeys.includes(key));
 
-  if (deleteCategoryKeys.length > 0) {
+  if (categoryRows.length > 0) {
+    // 1. Upsert categories
+    const { data: savedCategories, error: upsertCategoriesError } = await supabase
+      .from("resume_skill_categories")
+      .upsert(categoryRows, { onConflict: "resume_id,client_key" })
+      .select("id, client_key");
+
+    if (upsertCategoriesError) throw upsertCategoriesError;
+
+    // 2. Zero-read delete orphaned categories
+    const excludeString = `(${incomingKeys.map(k => `"${k}"`).join(",")})`;
     const { error: deleteCategoriesError } = await supabase
       .from("resume_skill_categories")
       .delete()
       .eq("resume_id", resumeId)
-      .in("client_key", deleteCategoryKeys);
+      .not("client_key", "in", excludeString);
 
     if (deleteCategoriesError) throw deleteCategoriesError;
-  }
 
-  if (categoryRows.length === 0) {
-    if (existingKeys.length > 0) {
-      const { error: clearCategoriesError } = await supabase
-        .from("resume_skill_categories")
-        .delete()
-        .eq("resume_id", resumeId);
+    const categoryIdMap = new Map(
+      getArray(savedCategories).map((row) => [row.client_key, row.id])
+    );
 
-      if (clearCategoriesError) throw clearCategoriesError;
+    const skillRows = normalizedSkillGroups.flatMap((item) => {
+      const categoryId = categoryIdMap.get(item.clientKey);
+      if (!categoryId) return [];
+
+      return parseSkillString(item.skills).map((skillName, skillIndex) => ({
+        resume_id: resumeId,
+        category_id: categoryId,
+        skill_name: skillName,
+        sort_order: skillIndex + 1,
+      }));
+    });
+
+    if (skillRows.length > 0) {
+      const { error: insertSkillItemsError } = await supabase
+        .from("resume_skill_items")
+        .insert(skillRows);
+
+      if (insertSkillItemsError) throw insertSkillItemsError;
     }
-    return;
-  }
+  } else {
+    // 3. Complete Wipe of categories
+    const { error: clearCategoriesError } = await supabase
+      .from("resume_skill_categories")
+      .delete()
+      .eq("resume_id", resumeId);
 
-  const { data: savedCategories, error: upsertCategoriesError } = await supabase
-    .from("resume_skill_categories")
-    .upsert(categoryRows, { onConflict: "resume_id,client_key" })
-    .select("id, client_key");
-
-  if (upsertCategoriesError) throw upsertCategoriesError;
-
-  const categoryIdMap = new Map(
-    getArray(savedCategories).map((row) => [row.client_key, row.id])
-  );
-
-  const skillRows = normalizedSkillGroups.flatMap((item) => {
-    const categoryId = categoryIdMap.get(item.clientKey);
-    if (!categoryId) return [];
-
-    return parseSkillString(item.skills).map((skillName, skillIndex) => ({
-      resume_id: resumeId,
-      category_id: categoryId,
-      skill_name: skillName,
-      sort_order: skillIndex + 1,
-    }));
-  });
-
-  if (skillRows.length > 0) {
-    const { error: insertSkillItemsError } = await supabase
-      .from("resume_skill_items")
-      .insert(skillRows);
-
-    if (insertSkillItemsError) throw insertSkillItemsError;
+    if (clearCategoriesError) throw clearCategoriesError;
   }
 };
 
@@ -899,26 +883,7 @@ const saveCustomSectionsToSupabase = async ({
     return row;
   });
 
-  const { data: existingRows, error: existingError } = await supabase
-    .from("resume_custom_sections")
-    .select("section_key")
-    .eq("resume_id", resumeId);
-
-  if (existingError) throw existingError;
-
   const incomingKeys = rows.map((row) => row.section_key);
-  const existingKeys = getArray(existingRows).map((row) => row.section_key);
-  const deleteKeys = existingKeys.filter((key) => !incomingKeys.includes(key));
-
-  if (deleteKeys.length > 0) {
-    const { error: deleteError } = await supabase
-      .from("resume_custom_sections")
-      .delete()
-      .eq("resume_id", resumeId)
-      .in("section_key", deleteKeys);
-
-    if (deleteError) throw deleteError;
-  }
 
   if (rows.length > 0) {
     const { error: upsertError } = await supabase
@@ -926,7 +891,17 @@ const saveCustomSectionsToSupabase = async ({
       .upsert(rows, { onConflict: "resume_id,section_key" });
 
     if (upsertError) throw upsertError;
-  } else if (existingKeys.length > 0) {
+
+    // Zero-read delete orphaned custom sections
+    const excludeString = `(${incomingKeys.map(k => `"${k}"`).join(",")})`;
+    const { error: deleteError } = await supabase
+      .from("resume_custom_sections")
+      .delete()
+      .eq("resume_id", resumeId)
+      .not("section_key", "in", excludeString);
+
+    if (deleteError) throw deleteError;
+  } else {
     const { error: clearError } = await supabase
       .from("resume_custom_sections")
       .delete()
@@ -1013,88 +988,118 @@ const buildInitializedResumePayload = ({
 export const initializeResumeBuilder = async (user, { lazy = true, resumeId = null } = {}) => {
   const userId = user?.id;
   
-  let targetResumeId = resumeId;
-  if (!targetResumeId) {
-    targetResumeId = await ensureProfileAndResume(user);
+  let targetResumeRow = null;
+  if (!resumeId) {
+    targetResumeRow = await ensureProfileAndResume(user);
   } else {
     const { data: checkResume } = await supabase
       .from("resumes")
-      .select("id")
-      .eq("id", targetResumeId)
+      .select("*, saved_jobs(company_name)")
+      .eq("id", resumeId)
       .eq("user_id", user.id)
       .maybeSingle();
 
     if (!checkResume) {
-      targetResumeId = await ensureProfileAndResume(user);
+      targetResumeRow = await ensureProfileAndResume(user);
+    } else {
+      targetResumeRow = checkResume;
     }
   }
   
-  const primaryResumeId = targetResumeId;
+  const primaryResumeId = targetResumeRow.id;
+  const templateName = targetResumeRow.template_name || "classic";
+  const targetCompany = targetResumeRow.saved_jobs?.company_name || "";
   const emptyResume = createEmptyResumeData();
 
-  if (!lazy) {
-    const [coreSections, repeatableSections, customSections] = await Promise.all([
-      loadResumeCoreSections(primaryResumeId),
-      Promise.all(
-        Object.entries(repeatableSectionLoaders).map(async ([key, loader]) => [
-          key,
-          await loader(primaryResumeId),
-        ])
-      ),
-      loadCustomSections(primaryResumeId, { includeContent: true }),
-    ]);
+  // HIGH-PERFORMANCE READ-MODEL HYDRATION
+  // Bypass all fragmented queries if a compiled read-model exists
+  const readModelPayload = await fetchResumeReadModelAsPayload(primaryResumeId);
+  const readModelHydration = readModelPayload?.resumeData;
+  
+  if (readModelHydration && (readModelHydration.contact || readModelHydration.summary)) {
+    // 1. Warm the Local Caches immediately with the parsed payload
+    setCachedSections(primaryResumeId, readModelHydration);
+    
+    const normalizedCustomMeta = Array.isArray(readModelHydration.customSections) 
+      ? readModelHydration.customSections.map(c => ({ key: c.key, label: c.label }))
+      : [];
+      
+    setCachedCustomSectionsMeta(primaryResumeId, normalizedCustomMeta);
 
-    const repeatableSectionMap = Object.fromEntries(repeatableSections);
+    const loadedKeys = [
+      'contact',
+      'summary',
+      'skills',
+      'experience',
+      'education',
+      'projects',
+      'certifications',
+      'achievements',
+      ...normalizedCustomMeta.map(c => c.key)
+    ];
 
-    return buildInitializedResumePayload({
-      resumeId: primaryResumeId,
-      userId,
-      emptyResume,
-      coreSections,
-      repeatableSectionMap,
-      customSections,
-      includeCustomContent: true,
-    });
-  }
+    const mergedData = { ...emptyResume, ...readModelHydration };
 
-  const cachedMeta = getCachedCustomSectionsMeta(primaryResumeId);
-  const cachedContact = getCachedSection(primaryResumeId, "contact");
-  const cachedSummary = getCachedSection(primaryResumeId, "summary");
-
-  if (cachedMeta.length > 0 && cachedContact && cachedSummary) {
     return {
       resumeId: primaryResumeId,
       userId,
-      customSections: cachedMeta,
-      loadedSectionKeys: ["contact", "summary"],
-      resumeData: {
-        ...emptyResume,
-        contact: {
-          ...emptyResume.contact,
-          ...cachedContact.contact,
-        },
-        summary: {
-          ...emptyResume.summary,
-          ...cachedSummary.summary,
-        },
-      },
+      customSections: normalizedCustomMeta,
+      loadedSectionKeys: loadedKeys,
+      resumeData: mergedData,
+      version: readModelPayload?.version,
+      hash: getResumeContentHash(readModelHydration, normalizedCustomMeta),
+      templateName,
+      targetCompany,
     };
   }
 
-  const [coreSections, customSections] = await Promise.all([
+  // FALLBACK: If read-model is entirely missing, fetch all fragmented tables immediately
+  const [coreSections, repeatableSections, customSections] = await Promise.all([
     loadResumeCoreSections(primaryResumeId),
-    loadCustomSections(primaryResumeId, { includeContent: false }),
+    Promise.all(
+      Object.entries(repeatableSectionLoaders).map(async ([key, loader]) => [
+        key,
+        await loader(primaryResumeId),
+      ])
+    ),
+    loadCustomSections(primaryResumeId, { includeContent: true }),
   ]);
 
-  return buildInitializedResumePayload({
+  const repeatableSectionMap = Object.fromEntries(repeatableSections);
+  const normalizedCustomMeta = customSections.map(c => ({ key: c.key, label: c.label }));
+  
+  // Set caches
+  setCachedCustomSectionsMeta(primaryResumeId, normalizedCustomMeta);
+  setCachedSections(primaryResumeId, { ...coreSections, ...repeatableSectionMap });
+
+  const payload = buildInitializedResumePayload({
     resumeId: primaryResumeId,
     userId,
     emptyResume,
     coreSections,
-    repeatableSectionMap: {},
+    repeatableSectionMap,
     customSections,
-    includeCustomContent: false,
+    includeCustomContent: true,
   });
+  
+  // Force loaded keys to contain all sections so ensureSectionLoaded becomes a no-op
+  payload.loadedSectionKeys = [
+    'contact',
+    'summary',
+    'skills',
+    'experience',
+    'education',
+    'projects',
+    'certifications',
+    'achievements',
+    ...normalizedCustomMeta.map(c => c.key)
+  ];
+
+  return {
+    ...payload,
+    templateName,
+    targetCompany,
+  };
 };
 
 const loadSectionFresh = async ({ sectionKey, resumeId }) => {
@@ -1304,7 +1309,7 @@ export const saveResumeSectionByKey = async ({
   userId,
   resumeData,
   customSections,
-  regenerateReadModel = true,
+  regenerateReadModel = true, version = null,
 }) => {
   await persistSectionByKey({
     sectionKey,
@@ -1333,12 +1338,13 @@ export const saveResumeSectionsBatch = async ({
   resumeData,
   customSections,
   regenerateReadModel = true,
+  version = null,
 }) => {
   const uniqueKeys = Array.from(
     new Set((Array.isArray(sectionKeys) ? sectionKeys : [sectionKeys]).filter(Boolean))
   ).filter((sectionKey) => sectionKey !== "review");
 
-  if (uniqueKeys.length === 0) {
+  if (uniqueKeys.length === 0 && !regenerateReadModel) {
     return { savedSectionKeys: [] };
   }
 
@@ -1360,6 +1366,7 @@ export const saveResumeSectionsBatch = async ({
       userId,
       resumeData,
       customSections,
+      version,
     });
     
     return { 
@@ -1442,3 +1449,55 @@ export const regenerateResumeSnapshot = async (resumeId, userId) => {
 
   return result;
 };
+
+/**
+ * Creates a deterministic, content-only hash of resume data for synchronization guards.
+ * Strips out database metadata (IDs, timestamps) to prevent false-positive sync triggers.
+ */
+export const getResumeContentHash = (resumeData, customSections = []) => {
+  if (!resumeData) return "";
+
+  const normalizeEntry = (entry) => {
+    if (!entry || typeof entry !== "object") return entry;
+    const { 
+      id, user_id, resume_id, 
+      created_at, updated_at, 
+      display_order, ...clean 
+    } = entry;
+    
+    return Object.fromEntries(
+      Object.entries(clean).sort().map(([k, v]) => [
+        k, 
+        Array.isArray(v) ? v.map(normalizeEntry) : v
+      ])
+    );
+  };
+
+  const normalizeList = (list) => {
+    if (!Array.isArray(list)) return [];
+    return list
+      .filter(Boolean)
+      .map(normalizeEntry)
+      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  };
+
+  const snapshot = {
+    contact: normalizeEntry(resumeData.contact),
+    summary: normalizeEntry(resumeData.summary),
+    template_name: resumeData.template_name || "classic",
+    skills: normalizeList(resumeData.skills),
+    education: normalizeList(resumeData.education),
+    experience: normalizeList(resumeData.experience),
+    projects: normalizeList(resumeData.projects),
+    certifications: normalizeList(resumeData.certifications),
+    achievements: normalizeList(resumeData.achievements),
+    customSections: (customSections || []).map(normalizeEntry).sort((a, b) => (a.key || '').localeCompare(b.key || ''))
+  };
+
+  return JSON.stringify(snapshot);
+};
+
+
+
+
+

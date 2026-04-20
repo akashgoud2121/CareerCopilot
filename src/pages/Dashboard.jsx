@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { FiEdit3, FiLayout, FiBookmark, FiLogOut, FiPlus } from "react-icons/fi";
 import { 
@@ -13,11 +13,14 @@ import ResumeThumbnail from "../components/dashboard/ResumeThumbnail";
 import { supabase } from "../services/supabase";
 import { 
   initializeResumeBuilder, 
-  saveResumeSectionsBatch, 
+  saveResumeSectionsBatch,
   ensureProfileAndResume
 } from "../services/resumeBuilderApi";
+import { seedResumeReadModelCache } from "../services/resumeReadModelApi";
 import ConfirmModal from "../components/common/ConfirmModal";
 import JobBoard from "../components/dashboard/JobBoard";
+import { useAuth } from "../contexts/AuthContext";
+
 
 const TemplateMiniPreview = ({ template }) => {
   if (template === 'modern') {
@@ -114,8 +117,10 @@ const ResumeContentPreview = ({ doc, resume }) => {
 };
 
 function Dashboard() {
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const hasLoadedRef = useRef(false);
   const [profile, setProfile] = useState(null);
   const [resumes, setResumes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -166,7 +171,9 @@ function Dashboard() {
 
   useEffect(() => {
     const loadData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      if (hasLoadedRef.current) return;
+      hasLoadedRef.current = true;
+      
       if (!user) {
         navigate("/login");
         return;
@@ -187,7 +194,21 @@ function Dashboard() {
         
         if (resumesRes.data) {
           setResumes(resumesRes.data);
+          
+          // Seed the Cache for the Builder
+          resumesRes.data.forEach(r => {
+            if (r.resume_full_documents) {
+              const readModelPayload = Array.isArray(r.resume_full_documents) 
+                ? r.resume_full_documents[0] 
+                : r.resume_full_documents;
+                
+              if (readModelPayload) {
+                 seedResumeReadModelCache(r.id, readModelPayload);
+              }
+            }
+          });
         }
+
         
         if (jobsRes.data) {
           setSavedJobs(jobsRes.data);
@@ -273,7 +294,6 @@ function Dashboard() {
     
     try {
       setIsSubmittingNewJob(true);
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       // Ensure profile exists to avoid foreign key violations
@@ -321,7 +341,6 @@ function Dashboard() {
     e?.preventDefault();
     try {
       setIsCreating(true);
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       // Ensure profile exists to avoid foreign key violations
@@ -367,7 +386,6 @@ function Dashboard() {
     e?.preventDefault();
     try {
       setIsCreating(true);
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       // Ensure profile exists to avoid foreign key violations
@@ -396,7 +414,6 @@ function Dashboard() {
     if (isDuplicating) return;
     try {
       setIsDuplicating(true);
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data: existing } = await supabase.from('resumes').select('title, template_name').eq('id', resumeId).single();
@@ -434,7 +451,6 @@ function Dashboard() {
   const handlePin = async (resumeId, isPinned, e) => {
     e?.stopPropagation();
     try {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       
       // Because their schema has `resumes_one_primary_per_user_idx`
@@ -486,7 +502,7 @@ function Dashboard() {
   // Job Actions
   const handleCreateJob = async ({ companyName, jobTitle, jobUrl, status }) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
       const { data: newJob, error } = await supabase.from("saved_jobs").insert({
         user_id: user.id,
         company_name: companyName,

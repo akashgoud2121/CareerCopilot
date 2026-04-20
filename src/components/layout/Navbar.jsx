@@ -25,6 +25,7 @@ function Navbar() {
   
   const dropdownRef = useRef(null);
   const mobileMenuRef = useRef(null);
+  const hasFetchedProfileRef = useRef(false);
 
   // Close dropdowns on click outside
   useEffect(() => {
@@ -43,7 +44,9 @@ function Navbar() {
 
   useEffect(() => {
     const loadProfile = async (sessionUser) => {
-      if (!sessionUser) return;
+      if (!sessionUser || hasFetchedProfileRef.current) return;
+      hasFetchedProfileRef.current = true;
+      
       const { data } = await supabase
         .from("profiles")
         .select("full_name")
@@ -264,20 +267,43 @@ function Navbar() {
               AI Tools
             </a>
             <div className="mt-2 flex flex-col gap-3 border-t border-slate-100 pt-4">
-              <Link
-                to="/login"
-                onClick={() => setShowMobileMenu(false)}
-                className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-center text-sm font-semibold text-slate-700 transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
-              >
-                Login
-              </Link>
-              <Link
-                to="/signup"
-                onClick={() => setShowMobileMenu(false)}
-                className="rounded-xl bg-[var(--color-primary)] px-6 py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
-              >
-                Signup
-              </Link>
+              {user ? (
+                <>
+                  <Link
+                    to="/dashboard"
+                    onClick={() => setShowMobileMenu(false)}
+                    className="rounded-xl bg-[var(--color-primary)] px-6 py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
+                  >
+                    Go to Dashboard
+                  </Link>
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      setShowMobileMenu(false);
+                    }}
+                    className="rounded-xl border border-red-200 bg-red-50 px-5 py-3 text-center text-sm font-semibold text-red-600 transition hover:bg-red-100"
+                  >
+                    Sign out
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    to="/login"
+                    onClick={() => setShowMobileMenu(false)}
+                    className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-center text-sm font-semibold text-slate-700 transition hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+                  >
+                    Login
+                  </Link>
+                  <Link
+                    to="/signup"
+                    onClick={() => setShowMobileMenu(false)}
+                    className="rounded-xl bg-[var(--color-primary)] px-6 py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:opacity-95"
+                  >
+                    Signup
+                  </Link>
+                </>
+              )}
             </div>
           </nav>
         </div>

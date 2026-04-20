@@ -298,6 +298,16 @@ export const readModelToResumeData = (documentJson = {}) => {
 const readModelCache = new Map();
 const CACHE_TTL = 30000; // 30 seconds
 
+export const seedResumeReadModelCache = (resumeId, readModelData) => {
+  if (!resumeId || !readModelData) return;
+  readModelCache.set(resumeId, {
+    data: readModelData,
+    timestamp: Date.now(),
+  });
+};
+
+const inFlightFetchModel = new Map();
+
 export const fetchResumeReadModel = async (resumeId, forceRefresh = false) => {
   if (!resumeId) throw new Error("resumeId is required");
 
@@ -309,29 +319,43 @@ export const fetchResumeReadModel = async (resumeId, forceRefresh = false) => {
     }
   }
 
-  const { data, error } = await supabase
-    .from("resume_full_documents")
-    .select("*")
-    .eq("resume_id", resumeId)
-    .maybeSingle();
-
-  if (error) throw error;
-
-  // Update cache
-  if (data) {
-    readModelCache.set(resumeId, {
-      data,
-      timestamp: Date.now(),
-    });
+  if (inFlightFetchModel.has(resumeId)) {
+    return inFlightFetchModel.get(resumeId);
   }
 
-  return data || null;
+  const fetchPromise = (async () => {
+    const { data, error } = await supabase
+      .from("resume_full_documents")
+      .select("*")
+      .eq("resume_id", resumeId)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (data) {
+      readModelCache.set(resumeId, {
+        data,
+        timestamp: Date.now(),
+      });
+    }
+
+    return data || null;
+  })();
+
+  inFlightFetchModel.set(resumeId, fetchPromise);
+  fetchPromise.finally(() => inFlightFetchModel.delete(resumeId));
+
+  return fetchPromise;
 };
 
-export const fetchResumeReadModelAsResumeData = async (resumeId) => {
+export const fetchResumeReadModelAsPayload = async (resumeId) => {
   const row = await fetchResumeReadModel(resumeId);
   if (!row?.document_json) return null;
-  return readModelToResumeData(row.document_json);
+  return {
+    version: row.version,
+    document_json: row.document_json,
+    resumeData: readModelToResumeData(row.document_json)
+  };
 };
 
 export const upsertResumeReadModel = async ({
