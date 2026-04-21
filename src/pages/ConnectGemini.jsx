@@ -208,7 +208,7 @@ function ConnectGemini() {
                 </ol>
               ) : (
                 <ol className="mt-4 list-decimal space-y-3 pl-4 text-sm leading-6 text-slate-600">
-                  <li>Visit the <a href="https://console.groq.com/keys" target="_blank" rel="noopener noreferrer" className="font-medium text-[var(--color-primary)] hover:underline">Groq Cloud Console</a>.</li>
+                  <li>Visit the <a href="https://console.groq.com/keys" className="font-medium text-[var(--color-primary)] hover:underline">Groq Cloud Console</a>.</li>
                   <li>Sign in and click <strong>"Create API Key"</strong>.</li>
                   <li>Name your key (e.g., "Career Copilot") and copy it.</li>
                 </ol>

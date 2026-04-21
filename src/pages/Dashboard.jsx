@@ -179,6 +179,12 @@ function Dashboard() {
         return;
       }
 
+      const onboardingDone = localStorage.getItem("career_copilot_onboarding_done");
+      if (onboardingDone !== "true") {
+        navigate("/how-it-works");
+        return;
+      }
+
       try {
         const [profileRes, resumesRes, jobsRes] = await Promise.all([
           supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),

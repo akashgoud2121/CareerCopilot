@@ -28,8 +28,13 @@ function Onboarding() {
         return;
       }
 
+      const aiProvider = localStorage.getItem("career_copilot_ai_provider") || "gemini";
       const geminiKey = localStorage.getItem("career_copilot_gemini_key");
-      if (!geminiKey) {
+      const groqKey = localStorage.getItem("career_copilot_groq_key");
+
+      const isAIConfigured = (aiProvider === "gemini" && geminiKey) || (aiProvider === "groq" && groqKey);
+
+      if (!isAIConfigured) {
         navigate("/connect-gemini");
         return;
       }
