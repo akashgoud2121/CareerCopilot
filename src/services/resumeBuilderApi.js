@@ -1,4 +1,4 @@
-﻿import { supabase } from "./supabase";
+import { supabase } from "./supabase";
 import { createEmptyResumeData } from "../utils/resumeSchema";
 import { upsertResumeReadModel, fetchResumeReadModelAsPayload } from "./resumeReadModelApi";
 
@@ -330,6 +330,8 @@ export const ensureProfileAndResume = async (user) => {
     .select("*, saved_jobs(company_name)")
     .eq("user_id", user.id)
     .eq("is_primary", true)
+    .order("updated_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (resumeFetchError) throw resumeFetchError;
@@ -345,7 +347,8 @@ export const ensureProfileAndResume = async (user) => {
       is_primary: true,
     })
     .select("*, saved_jobs(company_name)")
-    .single();
+    .limit(1)
+    .maybeSingle();
 
   if (resumeInsertError) {
     if (resumeInsertError.code === "23505") {
@@ -354,6 +357,8 @@ export const ensureProfileAndResume = async (user) => {
         .select("*, saved_jobs(company_name)")
         .eq("user_id", user.id)
         .eq("is_primary", true)
+        .order("updated_at", { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if (retryError) throw retryError;

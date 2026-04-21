@@ -12,7 +12,9 @@ export const getInitialRoute = async (user) => {
       .from("onboarding")
       .select("id")
       .eq("user_id", user.id)
-      .maybeSingle(); // maybeSingle handles 0 or 1 row gracefully
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
       
     if (onboardingData) return "/dashboard";
   } catch (err) {

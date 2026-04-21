@@ -187,7 +187,7 @@ function Dashboard() {
 
       try {
         const [profileRes, resumesRes, jobsRes] = await Promise.all([
-          supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+          supabase.from("profiles").select("*").eq("id", user.id).order("updated_at", { ascending: false }).limit(1).maybeSingle(),
           supabase.from("resumes").select("*, saved_jobs(id, company_name, job_title), resume_full_documents(document_json)").eq("user_id", user.id).order("is_primary", { ascending: false }).order("updated_at", { ascending: false }),
           supabase.from("saved_jobs").select("*").eq("user_id", user.id).order("created_at", { ascending: false })
         ]);
