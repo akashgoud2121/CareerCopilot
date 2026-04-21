@@ -638,7 +638,7 @@ function Dashboard() {
               className="inline-flex items-center gap-2 rounded border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 shadow-sm"
             >
               <IoFlashOutline className="h-4 w-4 text-[var(--color-primary)] shrink-0" />
-              Gemini API Key
+              API Key
             </button>
             <button 
               onClick={() => setCreateModalOpen(true)}
