@@ -1,19 +1,29 @@
+import { Suspense, lazy } from "react";
 import { Routes, Route } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import Navbar from "./components/layout/Navbar";
 import Footer from "./components/layout/Footer";
-import LandingPage from "./pages/LandingPage";
-import Signup from "./pages/Signup";
-import Login from "./pages/Login";
-import ConnectGemini from "./pages/ConnectGemini";
-import HowItWorks from "./pages/HowItWorks";
-import Onboarding from "./pages/Onboarding";
-import Dashboard from "./pages/Dashboard";
-import ResumeBuilder from "./pages/ResumeBuilder";
-import Settings from "./pages/Settings";
+
+// Lazy load pages for performance
+const LandingPage = lazy(() => import("./pages/LandingPage"));
+const Signup = lazy(() => import("./pages/Signup"));
+const Login = lazy(() => import("./pages/Login"));
+const ConnectGemini = lazy(() => import("./pages/ConnectGemini"));
+const HowItWorks = lazy(() => import("./pages/HowItWorks"));
+const Onboarding = lazy(() => import("./pages/Onboarding"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const ResumeBuilder = lazy(() => import("./pages/ResumeBuilder"));
+const Settings = lazy(() => import("./pages/Settings"));
 
 import ScrollToTop from "./components/common/ScrollToTop";
 import SmoothScroll from "./components/layout/SmoothScroll";
+
+// Loading fallback component
+const PageLoader = () => (
+  <div className="flex h-screen w-full items-center justify-center bg-white">
+    <div className="h-10 w-10 animate-spin rounded-full border-4 border-[var(--color-primary)] border-t-transparent"></div>
+  </div>
+);
 
 function App() {
   return (
@@ -23,17 +33,19 @@ function App() {
           <ScrollToTop />
           <Navbar />
           <main className="flex-1">
-            <Routes>
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/signup" element={<Signup />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/how-it-works" element={<HowItWorks />} />
-              <Route path="/connect-gemini" element={<ConnectGemini />} />
-              <Route path="/onboarding" element={<Onboarding />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/resume-builder" element={<ResumeBuilder />} />
-            </Routes>
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/signup" element={<Signup />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/how-it-works" element={<HowItWorks />} />
+                <Route path="/connect-gemini" element={<ConnectGemini />} />
+                <Route path="/onboarding" element={<Onboarding />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/settings" element={<Settings />} />
+                <Route path="/resume-builder" element={<ResumeBuilder />} />
+              </Routes>
+            </Suspense>
           </main>
           <Footer />
         </div>

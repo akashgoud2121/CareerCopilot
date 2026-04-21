@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "../../contexts/AuthContext";
-import HeroImage from "../../assets/HeroPreviewImage.png";
 
 const fadeInUp = {
   initial: { opacity: 0, y: 20 },
@@ -104,8 +103,10 @@ function HeroSection() {
             className="relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl"
           >
             <img
-              src={HeroImage}
+              src="/HeroPreviewImage.jpg.jpeg"
               alt="Career Copilot resume builder preview"
+              fetchPriority="high"
+              loading="eager"
               className="h-full w-full rounded-2xl object-cover"
             />
           </motion.div>
@@ -117,4 +118,4 @@ function HeroSection() {
   );
 }
 
-export default HeroSection;
+export default HeroSection;

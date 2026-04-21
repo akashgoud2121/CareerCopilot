@@ -12,12 +12,11 @@ import {
   IoLogOutOutline,
   IoRocketOutline
 } from "react-icons/io5";
-import { supabase } from "../../services/supabase";
+import { useAuth } from "../../contexts/AuthContext";
 import Logo from "../../assets/Carrer_Copilot_Logo.png";
 
 function Navbar() {
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
+  const { user, profile, logout } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const navigate = useNavigate();
@@ -25,7 +24,6 @@ function Navbar() {
   
   const dropdownRef = useRef(null);
   const mobileMenuRef = useRef(null);
-  const hasFetchedProfileRef = useRef(false);
 
   // Close dropdowns on click outside
   useEffect(() => {
@@ -42,35 +40,8 @@ function Navbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  useEffect(() => {
-    const loadProfile = async (sessionUser) => {
-      if (!sessionUser || hasFetchedProfileRef.current) return;
-      hasFetchedProfileRef.current = true;
-      
-      const { data } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", sessionUser.id)
-        .maybeSingle();
-      if (data) setProfile(data);
-    };
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) loadProfile(session.user);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) loadProfile(session.user);
-      else setProfile(null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await logout();
     setShowDropdown(false);
     navigate("/");
   };
