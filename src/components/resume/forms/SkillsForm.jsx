@@ -11,7 +11,7 @@ const SKILL_CATEGORIES = [
   "Cloud / DevOps",
   "Databases",
   "Tools / Platforms",
-  "Quality Assurance / Testing",
+  "SoftwareTesting/QA",
   "Soft Skills",
 ];
 
@@ -83,7 +83,7 @@ const SKILL_SUGGESTIONS = {
     "Google Colab",
     "Jupyter Notebook",
   ],
-  "Quality Assurance / Testing": [
+  "SoftwareTesting/QA": [
     "Manual Testing",
     "Automation Testing",
     "Selenium",
