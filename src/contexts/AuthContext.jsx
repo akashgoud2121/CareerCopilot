@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useRef } from "react";
 import { supabase } from "../services/supabase";
 
 const AuthContext = createContext();
@@ -9,36 +9,98 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const lastFetchedUserIdRef = useRef(null);
+  const activeFetchPromiseRef = useRef(null);
+
   const fetchProfile = async (userId) => {
-    try {
-      const { data } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .maybeSingle();
-      if (data) setProfile(data);
-    } catch (err) {
-      console.warn("Profile fetch error:", err);
+    if (!userId) return;
+    
+    // 1. DEDUPLICATION: Check if we are currently fetching OR already have the data for this user
+    if (activeFetchPromiseRef.current) return activeFetchPromiseRef.current;
+    if (lastFetchedUserIdRef.current === userId) return;
+
+    // Mark as fetching for this specific user immediately to block parallel attempts
+    lastFetchedUserIdRef.current = userId;
+
+    activeFetchPromiseRef.current = (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", userId)
+          .maybeSingle();
+
+        if (error) throw error;
+        
+        if (data) {
+          setProfile(data);
+          return data;
+        }
+      } catch (err) {
+        console.warn("Profile fetch error:", err);
+        // On error, reset so we can retry if needed
+        lastFetchedUserIdRef.current = null;
+      } finally {
+        activeFetchPromiseRef.current = null;
+      }
+    })();
+
+    return activeFetchPromiseRef.current;
+  };
+
+
+  const refreshProfile = async () => {
+    if (user) {
+      lastFetchedUserIdRef.current = null;
+      await fetchProfile(user.id);
     }
   };
 
   useEffect(() => {
-    // Check active sessions and sets the user
+    // 1. Capture initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id);
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+      
+      if (currentUser) {
+        // INSTANT INJECTION: Seed metadata name so Navbar isn't blank while fetching
+        const fallbackName = currentUser.user_metadata?.full_name || 
+                             currentUser.user_metadata?.name || 
+                             currentUser.email?.split("@")[0] || 
+                             "User";
+        
+        setProfile(prev => prev || { full_name: fallbackName, id: currentUser.id });
+        fetchProfile(currentUser.id);
+      }
       setLoading(false);
     });
 
-    // Listen for changes on auth state (log in, log out, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // 2. Subscribe to auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id);
-      else setProfile(null);
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+
+      if (currentUser) {
+        // Seed preliminary data if missing
+        if (!profile || profile.id !== currentUser.id) {
+            const fallbackName = currentUser.user_metadata?.full_name || 
+                                 currentUser.user_metadata?.name || 
+                                 currentUser.email?.split("@")[0] || 
+                                 "User";
+            setProfile({ full_name: fallbackName, id: currentUser.id });
+        }
+        // Trigger fetch in background without blocking
+        fetchProfile(currentUser.id);
+      } else {
+        lastFetchedUserIdRef.current = null;
+        setProfile(null);
+      }
+      
       setLoading(false);
     });
+
 
     return () => subscription.unsubscribe();
   }, []);
@@ -51,7 +113,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, logout }}>
+    <AuthContext.Provider value={{ user, session, profile, loading, logout, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

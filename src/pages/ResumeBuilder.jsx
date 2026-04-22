@@ -14,12 +14,6 @@ import ResumeSectionRenderer from "../components/resume/ResumeSectionRenderer";
 import GeminiModal from "../components/resume/GeminiModal";
 import ResumePreview from "../components/resume/ResumePreview";
 import { RESUME_SECTIONS, isObjectiveText } from "../utils/resumeSchema";
-import {
-  getLatestProjectionJob,
-  getProjectionJobById,
-  requestResumeProjection,
-  waitForProjectionCompletion,
-} from "../services/resumeProjectionJobsApi";
 import { fetchResumeReadModel, readModelToResumeData } from "../services/resumeReadModelApi";
 import { createResumeVersionSnapshot } from "../services/resumeVersionsApi";
 import { useResumeSyncOrchestrator } from "../hooks/useResumeSyncOrchestrator";
@@ -30,7 +24,6 @@ function ResumeBuilder() {
   const navigate = useNavigate();
   const hasInitializedRef = useRef(false);
   const backgroundSaveQueueRef = useRef(Promise.resolve());
-  const lastProjectionRequestTimeRef = useRef(0);
 
   const [checkingAccess, setCheckingAccess] = useState(true);
   const [currentStep, setCurrentStep] = useState(0);
@@ -50,12 +43,10 @@ function ResumeBuilder() {
   const [loadingSections, setLoadingSections] = useState(new Set());
   const [dirtySections, setDirtySections] = useState(new Set());
 
-  const USE_ASYNC_PROJECTION = false; // Disabled to eliminate overhead and hangs
-
   const [projectionStatus, setProjectionStatus] = useState("idle");
   const [projectionMessage, setProjectionMessage] = useState("");
   const [latestProjectedVersion, setLatestProjectedVersion] = useState(null);
-  const [activeProjectionJobId, setActiveProjectionJobId] = useState(null);
+
   const [showValidationErrors, setShowValidationErrors] = useState(false);
   const [isShaking, setIsShaking] = useState(false);
   const [validationToast, setValidationToast] = useState("");
@@ -137,10 +128,7 @@ function ResumeBuilder() {
   const isReviewLoading =
     currentSection?.key === "review" && missingReviewSectionKeys.length > 0;
 
-  const shouldTrackProjection =
-    USE_ASYNC_PROJECTION &&
-    !!resumeId &&
-    !!activeProjectionJobId;
+
 
   const getOnboardingData = () => {
     try {
@@ -237,106 +225,29 @@ function ResumeBuilder() {
   }, []);
 
   const refreshProjectionState = useCallback(
-    async (explicitJobId = null, options = {}) => {
+    async (options = {}) => {
       const { forceFetchReadModel = false } = options;
-      if (!resumeId) return null;
+      if (!resumeId) return;
 
       try {
-        const trackedJobId = explicitJobId ?? activeProjectionJobId;
-        if (!trackedJobId) {
-          // If no specific job is tracked, we only update the read-model state
-          // and don't perform any polling.
-          if (forceFetchReadModel || latestProjectedVersion === null) {
-            const readModelRow = await fetchResumeReadModel(resumeId);
-            if (readModelRow?.version !== undefined && readModelRow?.version !== null) {
-              setLatestProjectedVersion(readModelRow.version);
-              setProjectionStatus("up_to_date");
-              setProjectionMessage("Preview is up to date.");
-            }
-          } else {
-             setProjectionStatus("up_to_date");
-          }
-          return null;
-        }
-
-        let latestJob = await getProjectionJobById({ jobId: trackedJobId }).catch(() => null);
-
-        // Step 1.5: Ignore "Ghost Jobs" (pending jobs older than 60 seconds)
-        if (latestJob && latestJob.status !== "completed" && latestJob.status !== "failed") {
-          const createdAt = new Date(latestJob.created_at || Date.now());
-          const now = new Date();
-          const ageInMs = now.getTime() - createdAt.getTime();
-          if (ageInMs > 60000) { // 60s expiration
-            latestJob = null; 
-            setActiveProjectionJobId(null);
-          }
-        }
-
-        // Step 2: Handle Job status transitions
-        if (!latestJob) {
-          // Only fetch the read-model IF we actually need to sync on first load or explicitly requested.
-          if (forceFetchReadModel || latestProjectedVersion === null) {
-            const readModelRow = await fetchResumeReadModel(resumeId);
-            if (readModelRow?.version !== undefined && readModelRow?.version !== null) {
-              setLatestProjectedVersion(readModelRow.version);
-              setProjectionStatus("up_to_date");
-              setProjectionMessage("Preview is up to date.");
-            } else {
-              setProjectionStatus("idle");
-              setProjectionMessage("");
-            }
-          } else {
-            // Keep existing state if no job and we already have a version
-            setProjectionStatus("up_to_date");
-          }
-          return null;
-        }
-
-        if (latestJob.status === "completed") {
-          // If the job completed, or we are specifically forcing a sync, fetch the document
-          if (forceFetchReadModel || latestProjectedVersion === null || latestJob.status === "completed") {
-            const readModelRow = await fetchResumeReadModel(resumeId);
-            if (readModelRow?.version !== undefined && readModelRow?.version !== null) {
-              if (latestProjectedVersion !== readModelRow.version) {
-                 setLatestProjectedVersion(readModelRow.version);
-              }
-            }
-          }
-          
-          if (projectionStatus !== "up_to_date") {
+        // We only update the read-model state and don't perform any polling.
+        if (forceFetchReadModel || latestProjectedVersion === null) {
+          const readModelRow = await fetchResumeReadModel(resumeId);
+          if (readModelRow?.version !== undefined && readModelRow?.version !== null) {
+            setLatestProjectedVersion(readModelRow.version);
             setProjectionStatus("up_to_date");
             setProjectionMessage("Preview is up to date.");
           }
-          
-          if (trackedJobId && String(latestJob.id) === String(trackedJobId)) {
-            setActiveProjectionJobId(null);
-          }
-        } else if (latestJob.status === "failed") {
-          if (projectionStatus !== "error") {
-            setProjectionStatus("error");
-            setProjectionMessage(
-              latestJob.error_message || "Preview update failed."
-            );
-          }
-          if (trackedJobId && String(latestJob.id) === String(trackedJobId)) {
-            setActiveProjectionJobId(null);
-          }
         } else {
-          if (projectionStatus !== "updating") {
-            setProjectionStatus("updating");
-            setProjectionMessage("Updating preview...");
-          }
+          setProjectionStatus("up_to_date");
         }
-
-        return latestJob;
       } catch (error) {
         console.error("Failed to refresh projection state:", error);
         setProjectionStatus("error");
         setProjectionMessage("Could not refresh preview status.");
-        return null;
       }
     },
-    [activeProjectionJobId, resumeId]
+    [resumeId, latestProjectedVersion]
   );
 
   const saveDirtySections = useCallback(
@@ -344,7 +255,7 @@ function ResumeBuilder() {
       const { background = false, immediateProjection = false } = options;
 
       if (!resumeId || !userId) {
-        return { ok: false, projectionJobId: null };
+        return { ok: false };
       }
 
       const currentDirtyKeys = Array.from(dirtySections);
@@ -353,7 +264,7 @@ function ResumeBuilder() {
         if (immediateProjection) {
           await requestSync("forced_checkpoint (empty_keys)", { immediate: true });
         }
-        return { ok: true, projectionJobId: activeProjectionJobId };
+        return { ok: true };
       }
 
       const requested =
@@ -365,10 +276,13 @@ function ResumeBuilder() {
         CUSTOM_SECTIONS_META_DIRTY_KEY
       );
 
+      const shouldUpdateResumesTable = dirtySections.has("__settings__");
+
       let keysToSave = requested.filter(
         (key) =>
           currentDirtyKeys.includes(key) ||
-          key === CUSTOM_SECTIONS_META_DIRTY_KEY
+          key === CUSTOM_SECTIONS_META_DIRTY_KEY ||
+          key === "__settings__"
       );
 
       if (shouldAlsoSaveCustomMeta) {
@@ -381,7 +295,7 @@ function ResumeBuilder() {
         if (immediateProjection) {
           await requestSync("forced_checkpoint (no_keys_to_save)", { immediate: true });
         }
-        return { ok: true, projectionJobId: activeProjectionJobId };
+        return { ok: true };
       }
 
       try {
@@ -390,14 +304,30 @@ function ResumeBuilder() {
         }
 
         // 1. FAST PERSISTENCE (Fragmented tables)
-        await saveResumeSectionsBatch({
-          sectionKeys: keysToSave,
-          resumeId,
-          userId,
-          resumeData,
-          customSections,
-          regenerateReadModel: false, // DON'T regenerate full JSON yet
-        });
+        const savePromises = [
+          saveResumeSectionsBatch({
+            sectionKeys: keysToSave.filter(k => k !== "__settings__"),
+            resumeId,
+            userId,
+            resumeData,
+            customSections,
+            regenerateReadModel: false,
+          })
+        ];
+
+        if (shouldUpdateResumesTable) {
+          savePromises.push(
+            supabase
+              .from("resumes")
+              .update({ 
+                template_name: resumeData.template_name,
+                target_company: targetCompany 
+              })
+              .eq("id", resumeId)
+          );
+        }
+
+        await Promise.all(savePromises);
 
         clearSavedDirtyKeys(keysToSave);
 
@@ -408,12 +338,12 @@ function ResumeBuilder() {
           requestSync("debounce_edit", { immediate: false });
         }
 
-        return { ok: true, projectionJobId: null };
+        return { ok: true };
       } catch (error) {
         console.error("Dirty section save failed:", error);
         setProjectionStatus("error");
         setProjectionMessage("Failed to save changes.");
-        return { ok: false, projectionJobId: null };
+        return { ok: false };
       } finally {
         if (!background) {
           setIsSaving(false);
@@ -421,7 +351,6 @@ function ResumeBuilder() {
       }
     },
     [
-      activeProjectionJobId,
       clearSavedDirtyKeys,
       customSections,
       dirtySections,
@@ -436,7 +365,7 @@ function ResumeBuilder() {
 
   const saveCurrentSectionDraft = useCallback(async () => {
     if (!currentSection?.key) {
-      return { ok: true, projectionJobId: activeProjectionJobId };
+      return { ok: true };
     }
 
     if (currentSection.key === "review") {
@@ -445,7 +374,6 @@ function ResumeBuilder() {
 
     return saveDirtySections([currentSection.key]);
   }, [
-    activeProjectionJobId,
     currentSection?.key,
     dirtySections,
     saveDirtySections,
@@ -616,33 +544,11 @@ function ResumeBuilder() {
 
   useEffect(() => {
     const initPage = async () => {
-      if (hasInitializedRef.current) return;
+      if (hasInitializedRef.current || !user) return;
       hasInitializedRef.current = true;
       try {
-        if (!user) {
-          navigate("/login");
-          return;
-        }
-
-        const aiProvider = localStorage.getItem("career_copilot_ai_provider") || "gemini";
-        const geminiKey = localStorage.getItem("career_copilot_gemini_key");
-        const groqKey = localStorage.getItem("career_copilot_groq_key");
-
-        const isAIConfigured = (aiProvider === "gemini" && geminiKey) || (aiProvider === "groq" && groqKey);
-
-        if (!isAIConfigured) {
-          navigate("/connect-gemini");
-          return;
-        }
-
-        const onboardingDone = localStorage.getItem("career_copilot_onboarding_done");
-
-        if (onboardingDone !== "true") {
-          navigate("/onboarding");
-          return;
-        }
-
         const params = new URLSearchParams(window.location.search);
+
         const urlResumeId = params.get("id");
         const urlAction = params.get("action");
 
@@ -933,7 +839,7 @@ function ResumeBuilder() {
     setGeminiModalContext(null);
   };
 
-  const handleTemplateChange = async (templateId) => {
+  const handleTemplateChange = (templateId) => {
     if (!resumeId) return;
 
     // Update local state first for immediate UI response
@@ -942,16 +848,8 @@ function ResumeBuilder() {
       template_name: templateId,
     }));
 
-    try {
-      const { error } = await supabase
-        .from("resumes")
-        .update({ template_name: templateId })
-        .eq("id", resumeId);
-
-      if (error) throw error;
-    } catch (error) {
-      console.error("Failed to update template:", error);
-    }
+    // Mark as dirty so it gets saved in the next cycle
+    markSectionsDirty("__settings__");
   };
 
   const handleSaveDraft = async () => {
@@ -963,17 +861,8 @@ function ResumeBuilder() {
       setIsSaving(true);
       setProjectionMessage("Preparing version snapshot...");
 
-      const jobIdToWaitFor =
-        saveResult.projectionJobId || activeProjectionJobId || null;
+      await refreshProjectionState({ forceFetchReadModel: true });
 
-      if (USE_ASYNC_PROJECTION && jobIdToWaitFor) {
-        // We set the status and let the background effect handle the actual polling/syncing.
-        // This prevents double-polling and thrashing.
-        setProjectionStatus("updating");
-        setProjectionMessage("Waiting for preview update...");
-      } else if (USE_ASYNC_PROJECTION) {
-        await refreshProjectionState();
-      }
 
       // Snapshot logic - wait for latest projected version before taking snapshot
       // We still want to verify the read model was actually updated before snapshotting

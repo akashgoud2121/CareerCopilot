@@ -117,11 +117,12 @@ const ResumeContentPreview = ({ doc, resume }) => {
 };
 
 function Dashboard() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const hasLoadedRef = useRef(false);
-  const [profile, setProfile] = useState(null);
+
+
   const [resumes, setResumes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -171,34 +172,19 @@ function Dashboard() {
 
   useEffect(() => {
     const loadData = async () => {
-      if (hasLoadedRef.current) return;
+      // We still use the ref as a "fender" but we allow it to retry if user becomes available
+      if (hasLoadedRef.current || !user) return;
       hasLoadedRef.current = true;
       
-      if (!user) {
-        navigate("/login");
-        return;
-      }
-
-      const onboardingDone = localStorage.getItem("career_copilot_onboarding_done");
-      if (onboardingDone !== "true") {
-        navigate("/how-it-works");
-        return;
-      }
-
       try {
-        const [profileRes, resumesRes, jobsRes] = await Promise.all([
-          supabase.from("profiles").select("*").eq("id", user.id).order("updated_at", { ascending: false }).limit(1).maybeSingle(),
+
+        const [resumesRes, jobsRes] = await Promise.all([
           supabase.from("resumes").select("*, saved_jobs(id, company_name, job_title), resume_full_documents(document_json)").eq("user_id", user.id).order("is_primary", { ascending: false }).order("updated_at", { ascending: false }),
           supabase.from("saved_jobs").select("*").eq("user_id", user.id).order("created_at", { ascending: false })
         ]);
 
-        if (profileRes.data) {
-          setProfile(profileRes.data);
-        } else {
-          setProfile({ full_name: user.email?.split("@")[0] || "User" });
-        }
-        
         if (resumesRes.data) {
+
           setResumes(resumesRes.data);
           
           // Seed the Cache for the Builder
@@ -227,7 +213,7 @@ function Dashboard() {
     };
 
     loadData();
-  }, [navigate]);
+  }, [navigate, user]);
 
   const TemplateBadge = ({ templateName }) => {
     const config = {
@@ -771,22 +757,11 @@ function Dashboard() {
                             </button>
                           </div>
                         ) : (
-                          <>
-                            <div className="flex items-center gap-2 group/title">
-                              <div className="font-bold text-slate-900 mb-0.5">
-                                {resume.title.length > 35 ? resume.title.substring(0,35) + "..." : resume.title}
-                              </div>
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); setEditingResumeId(resume.id); setEditingTitle(resume.title); }}
-                                className="opacity-0 group-hover/title:opacity-100 p-1 text-slate-400 hover:text-[var(--color-primary)] transition"
-                              >
-                                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                              </button>
-                            </div>
-                            <div className="mt-1">
-                              <TemplateBadge templateName={resume.template_name} />
-                            </div>
-                          </>
+                          <div className="flex flex-col">
+                            <p className="max-w-[280px] truncate text-[15px] font-bold tracking-tight text-slate-900 transition-colors group-hover:text-[var(--color-primary)]">
+                              {resume.title || "Untitled Resume"}
+                            </p>
+                          </div>
                         )}
                       </div>
                     </td>
@@ -982,7 +957,6 @@ function Dashboard() {
 
                   <div className="mt-4 flex items-center justify-between">
                     <span className="text-[11px] font-bold text-slate-400">{getRelativeTime(resume.updated_at)}</span>
-                    <TemplateBadge templateName={resume.template_name} />
                   </div>
                 </div>
               </div>

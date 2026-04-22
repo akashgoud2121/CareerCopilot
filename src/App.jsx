@@ -17,6 +17,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 
 import ScrollToTop from "./components/common/ScrollToTop";
 import SmoothScroll from "./components/layout/SmoothScroll";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
 
 // Loading fallback component
 const PageLoader = () => (
@@ -25,8 +26,10 @@ const PageLoader = () => (
   </div>
 );
 
+
 function App() {
   return (
+
     <HelmetProvider>
       <SmoothScroll>
         <div className="flex min-h-screen flex-col">
@@ -41,9 +44,30 @@ function App() {
                 <Route path="/how-it-works" element={<HowItWorks />} />
                 <Route path="/connect-gemini" element={<ConnectGemini />} />
                 <Route path="/onboarding" element={<Onboarding />} />
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/settings" element={<Settings />} />
-                <Route path="/resume-builder" element={<ResumeBuilder />} />
+                <Route 
+                  path="/dashboard" 
+                  element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/settings" 
+                  element={
+                    <ProtectedRoute>
+                      <Settings />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/resume-builder" 
+                  element={
+                    <ProtectedRoute>
+                      <ResumeBuilder />
+                    </ProtectedRoute>
+                  } 
+                />
               </Routes>
             </Suspense>
           </main>
@@ -53,5 +77,6 @@ function App() {
     </HelmetProvider>
   );
 }
+
 
 export default App;

@@ -9,39 +9,28 @@ import {
 import { useAuth } from "../../contexts/AuthContext";
 
 const ProfileSection = () => {
-  const { user } = useAuth();
+  const { user, profile: contextProfile, refreshProfile } = useAuth();
   const [profile, setProfile] = useState({
-    fullName: "",
-    email: "",
+    fullName: contextProfile?.full_name || "",
+    email: user?.email || "",
   });
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
 
   useEffect(() => {
-    const loadUserData = async () => {
-      try {
-        if (!user) return;
+    if (contextProfile) {
+      setProfile({
+        fullName: contextProfile.full_name || "",
+        email: user?.email || "",
+      });
+      setLoading(false);
+    }
+  }, [contextProfile, user]);
 
 
-        const { data: profileData } = await supabase
-          .from("profiles")
-          .select("full_name")
-          .eq("id", user.id)
-          .maybeSingle();
 
-        setProfile({
-          fullName: profileData?.full_name || "",
-          email: user.email || "",
-        });
-      } catch (err) {
-        console.error("Error loading profile:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadUserData();
-  }, [user]);
 
   const handleUpdateProfile = async (e) => {
     e.preventDefault();
@@ -59,9 +48,14 @@ const ProfileSection = () => {
         })
         .eq("id", user.id);
 
+
+
       if (error) throw error;
 
+      await refreshProfile();
       setMessage({ type: "success", text: "Profile updated successfully!" });
+
+
     } catch (err) {
       setMessage({ type: "error", text: err.message });
     } finally {
