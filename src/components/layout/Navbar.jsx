@@ -173,6 +173,14 @@ function Navbar() {
                       <IoBriefcaseOutline className="text-lg text-slate-400 transition-colors group-hover:text-white" />
                       Tracked Jobs
                     </Link>
+                    <Link
+                      to="/keywords"
+                      onClick={() => setShowDropdown(false)}
+                      className="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13.5px] font-semibold text-[var(--color-primary)] bg-indigo-50/50 transition-all hover:bg-[var(--color-primary)] hover:text-white group"
+                    >
+                      <IoFlashOutline className="text-lg text-[var(--color-primary)] transition-colors group-hover:text-white" />
+                      Keyword Generator
+                    </Link>
                     <div className="my-1.5 h-px bg-slate-100 mx-2" />
                     <button
                       onClick={handleLogout}

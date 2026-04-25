@@ -45,6 +45,46 @@ function extractText(response) {
   ).trim();
 }
 
+function extractJSON(text) {
+  if (!text) return null;
+  
+  // Remove possible markdown wrappers or AI chatter
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return null;
+  
+  try {
+    return JSON.parse(jsonMatch[0]);
+  } catch (e) {
+    console.error("JSON parse failed. Text was:", text);
+    return null;
+  }
+}
+
+function cleanAIResponse(text) {
+  if (!text) return "";
+  
+  // 1. Strip markdown wrappers entirely
+  let cleaned = text.replace(/```[a-z]*\n?/gi, "").replace(/```/g, "");
+
+  // 2. Aggressively strip "Chatty" preambles using multi-pass cleaning
+  const patterns = [
+    /^here (is|are|'s).*?[:\n]/im,
+    /^(certainly|sure|absolutely|okay|i have|i've|i optimized|i have optimized).*?[:\n]/im,
+    /^optimized (section|content|resume).*?[:\n]/im,
+    /^below (is|are).*?[:\n]/im,
+    /^the (following|result|updated).*?[:\n]/im,
+    /^\s*result\s*[:\n]/im,
+    /^"|"$|^'|'$/g, // Wrapping quotes
+    /^\s*\*\s*/     // Leading asterisk lists if unnecessary
+  ];
+
+  patterns.forEach(p => {
+    cleaned = cleaned.replace(p, "");
+  });
+
+  return cleaned.trim();
+}
+
 export async function runGeminiBasicTest() {
   const ai = getGeminiClient();
 
@@ -84,38 +124,57 @@ export async function runGroqBasicTest(apiKey) {
   return data?.choices?.[0]?.message?.content?.trim() || "";
 }
 
+function interpretAIError(err) {
+  const msg = (err?.message || String(err)).toLowerCase();
+  if (msg.includes("busy") || msg.includes("overloaded") || msg.includes("503") || msg.includes("unavailable")) {
+    return "The AI Model is currently busy or overloaded. This is a server-side AI delay, not your fault. Please try again in 5 seconds.";
+  }
+  if (msg.includes("429") || msg.includes("rate limit") || msg.includes("quota") || msg.includes("exhausted")) {
+    return "The AI engine has reached its temporary capacity (Rate Limit). This is a provider limit. Please wait 15 seconds and try again.";
+  }
+  if (msg.includes("invalid_api_key") || msg.includes("401") || msg.includes("unauthorized")) {
+    return "The AI API key is invalid or has expired. Please check your settings.";
+  }
+  return "AI Brain encountered an issue: " + (err.message || "Unknown model error");
+}
+
 async function callGroqAPI(prompt) {
   const { apiKey } = getGroqConfig();
 
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: GROQ_MODEL,
-      messages: [
-        {
-          role: "system",
-          content: "You are an expert resume writer. Generate polished, ATS-friendly content based on the user's data. Be concise and truthful.",
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: 0.7,
-    }),
-  });
+  try {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          {
+            role: "system",
+            content: "You are a professional resume writer. Return ONLY the requested content. No conversational filler, no preambles, no 'Here is...', and no markdown labels. RETURN PURE CONTENT ONLY.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 0.7,
+      }),
+    });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData?.error?.message || "AI generation failed (Groq).");
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMsg = errorData?.error?.message || `Status: ${response.status}`;
+      throw new Error(errorMsg);
+    }
+
+    const data = await response.json();
+    return data?.choices?.[0]?.message?.content?.trim() || "";
+  } catch (err) {
+    throw new Error(interpretAIError(err));
   }
-
-  const data = await response.json();
-  return data?.choices?.[0]?.message?.content?.trim() || "";
 }
 
 function normalizeList(value) {
@@ -519,6 +578,123 @@ export async function generateResumeSection(
     contents: prompt,
   });
 
+  return cleanAIResponse(extractText(response));
+}
 
-  return extractText(response);
+function buildKeywordGenerationPrompt(resumeData, jobDescription) {
+  const skillsText = getSkillsText(resumeData?.skills || []);
+  const experienceText = getExperienceText(resumeData?.experience || []);
+  const projectsText = getProjectsText(resumeData?.projects || []);
+
+  return `
+You are an expert career coach and ATS optimization AI. 
+Analyze the provided Target Job Description and the Candidate's Resume Profile.
+
+1. Extract high-impact keywords required by the Job Description.
+2. Cross-reference them with the Candidate's Context.
+3. Separate keywords into "matched" (found in resume) and "missing" (not found, but relevant).
+4. Calculate a "matchScore" from 0-100 based on keyword frequency and relevance in the resume relative to the JD.
+
+Return the response strictly as a pure JSON object with the following structure:
+{
+  "skills": [
+    { "category": "Languages", "matched": ["Python"], "missing": ["Go"] },
+    { "category": "Frameworks", "matched": ["React"], "missing": ["Next.js"] }
+  ],
+  "projects": { "matched": ["KW"], "missing": ["KW"] },
+  "experience": { "matched": ["KW"], "missing": ["KW"] },
+  "matchScore": 75
+}
+
+Target Job Description:
+${jobDescription || "Not provided"}
+
+Candidate Context:
+- Skills: ${skillsText || "Not provided"}
+- Experience: ${experienceText || "Not provided"}
+- Projects: ${projectsText || "Not provided"}
+
+Important Rules:
+- Return EXACTLY valid JSON.
+- Max 10 keywords per category total.
+- Match score should be realistic assessment of candidate's suitability for this specific job context.
+`.trim();
+}
+
+export async function generateKeywords(resumeData = {}, jobDescription = "") {
+  const provider = getAIProvider();
+  const prompt = buildKeywordGenerationPrompt(resumeData, jobDescription);
+
+  let rawOutput = "";
+  try {
+    if (provider === "groq") {
+      rawOutput = await callGroqAPI(prompt);
+    } else {
+      const ai = getGeminiClient();
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+      });
+      rawOutput = extractText(response);
+    }
+  } catch (err) {
+    throw new Error(interpretAIError(err));
+  }
+
+  const parsed = extractJSON(rawOutput);
+  if (!parsed) {
+     console.error("Failed to extract JSON from AI output:", rawOutput);
+     throw new Error("AI returned invalid data format. Please try again.");
+  }
+
+  return {
+    skills: parsed?.skills || { matched: [], missing: [] },
+    projects: parsed?.projects || { matched: [], missing: [] },
+    experience: parsed?.experience || { matched: [], missing: [] },
+    matchScore: typeof parsed?.matchScore === 'number' ? parsed.matchScore : 0
+  };
+}
+
+export async function generateSmartRewrite(originalText, targetKeywords = [], context = "") {
+  const provider = getAIProvider();
+  const prompt = `
+You are an expert resume editor focusing on ULTRA-CONCISE ATS optimization.
+
+TASK:
+Optimize the SECTION below to include missing keywords.
+
+TARGET MISSING KEYWORDS: ${targetKeywords.join(", ")}
+
+GLOBAL CONTEXT:
+${context.fullResumeText}
+
+SECTION TO REWRITE:
+"${originalText}"
+
+STRICT RULES:
+1. FORMATTING: Return ONLY the raw text bullets. NO markdown bolding (**), NO headers, NO conversational text.
+2. LIMITS: Maximum 3 bullet points total.
+3. BREVITY: Each bullet must be a single, high-impact sentence. 
+4. VOCABULARY: Avoid repeating verbs from the GLOBAL CONTEXT. 
+5. NO HALLUCINATIONS: Do not invent new company names or dates.
+6. ATS: Naturally integrate keywords into sentences.
+`.trim();
+
+  let rawOutput = "";
+  try {
+    if (provider === "groq") {
+      rawOutput = await callGroqAPI(prompt);
+    } else {
+      const ai = getGeminiClient();
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+      });
+      rawOutput = extractText(response);
+    }
+  } catch (err) {
+    throw new Error(interpretAIError(err));
+  }
+
+  return cleanAIResponse(rawOutput);
 }
