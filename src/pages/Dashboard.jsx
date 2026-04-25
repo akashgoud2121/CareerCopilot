@@ -611,7 +611,7 @@ function Dashboard() {
           <div className="flex items-center gap-3">
             <button 
               onClick={() => navigate("/settings")}
-              className="inline-flex h-10 w-10 items-center justify-center rounded border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-[var(--color-primary)] shadow-sm"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-[var(--color-primary)] shadow-sm shrink-0"
               title="Account Settings"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -621,19 +621,28 @@ function Dashboard() {
             </button>
             <button 
               onClick={() => navigate("/connect-gemini")}
-              className="inline-flex items-center gap-2 rounded border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 shadow-sm"
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 shadow-sm whitespace-nowrap"
             >
               <IoFlashOutline className="h-4 w-4 text-[var(--color-primary)] shrink-0" />
               API Key
             </button>
             <button 
               onClick={() => setCreateModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded bg-[var(--color-primary)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+              className="inline-flex h-11 items-center gap-2 rounded-xl bg-[var(--color-primary)] px-5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 whitespace-nowrap"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
               Create New
+            </button>
+            <button 
+              onClick={() => navigate("/certificate")}
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-5 text-sm font-semibold text-amber-700 shadow-sm transition hover:bg-amber-100 whitespace-nowrap"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-1.341C10.14 2.727 10.871 2 12 2s1.86.727 2.219 1.356a3.42 3.42 0 001.946 1.341c.733.173 1.51.556 2.061 1.107s.934 1.327 1.107 2.061a3.42 3.42 0 001.341 1.946C21.273 10.14 22 10.871 22 12s-.727 1.86-1.356 2.219a3.42 3.42 0 00-1.341 1.946c-.173.733-.556 1.51-1.107 2.061s-1.327.934-2.061 1.107a3.42 3.42 0 00-1.946 1.341C13.86 21.273 13.129 22 12 22s-1.86-.727-2.219-1.356a3.42 3.42 0 00-1.946-1.341c-.733-.173-1.51-.556-2.061-1.107s-.934-1.327-1.107-2.061a3.42 3.42 0 00-1.341-1.946C2.727 13.86 2 13.129 2 12s.727-1.86 1.356-2.219a3.42 3.42 0 001.341-1.946c.173-.733.556-1.51 1.107-2.061s1.327-.934 2.061-1.107z" />
+              </svg>
+              View Certificate
             </button>
           </div>
         </div>

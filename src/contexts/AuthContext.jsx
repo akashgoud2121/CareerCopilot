@@ -52,8 +52,9 @@ export function AuthProvider({ children }) {
   const refreshProfile = async () => {
     if (user) {
       lastFetchedUserIdRef.current = null;
-      await fetchProfile(user.id);
+      return await fetchProfile(user.id);
     }
+    return null;
   };
 
   useEffect(() => {

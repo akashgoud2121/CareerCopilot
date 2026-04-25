@@ -14,6 +14,7 @@ const Onboarding = lazy(() => import("./pages/Onboarding"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const ResumeBuilder = lazy(() => import("./pages/ResumeBuilder"));
 const Settings = lazy(() => import("./pages/Settings"));
+const Certificate = lazy(() => import("./pages/Certificate"));
 
 import ScrollToTop from "./components/common/ScrollToTop";
 import SmoothScroll from "./components/layout/SmoothScroll";
@@ -65,6 +66,14 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <ResumeBuilder />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/certificate" 
+                  element={
+                    <ProtectedRoute>
+                      <Certificate />
                     </ProtectedRoute>
                   } 
                 />

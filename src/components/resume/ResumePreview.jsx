@@ -365,6 +365,14 @@ export default function ResumePreview({
         await onForceSync();
       }
 
+      // Update resume status to completed for certificate unlocking
+      if (resumeId) {
+        await supabase
+          .from("resumes")
+          .update({ resume_status: "completed" })
+          .eq("id", resumeId);
+      }
+
       // 1. Create a hidden iframe
       const iframe = document.createElement("iframe");
       iframe.style.position = "fixed";

@@ -176,21 +176,6 @@ function Onboarding() {
           <div className="grid gap-6 md:grid-cols-2">
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
-                Full Name
-              </label>
-              <input
-                type="text"
-                name="fullName"
-                value={formData.fullName}
-                onChange={handleChange}
-                placeholder="Enter your full name"
-                className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-[var(--color-primary)] capitalize"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
                 Education
               </label>
               <input
