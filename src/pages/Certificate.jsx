@@ -86,7 +86,7 @@ const Certificate = () => {
     try {
       setIsSharing(true);
       const canvas = await html2canvas(certRef.current, {
-        scale: 2, // 2x scale perfectly balances crisp A4 printing with minimal file size overhead
+        scale: 4, // Ultra-High Resolution (4x) for crystal clear printing
         useCORS: true,
         backgroundColor: "#ffffff",
         logging: false,
@@ -113,8 +113,8 @@ const Certificate = () => {
         }
       });
       
-      // Use JPEG with 95% quality instead of lossless PNG to dramatically reduce PDF file bloat
-      const imgData = canvas.toDataURL("image/jpeg", 0.95);
+      // Use JPEG with 98% quality - Near lossless but much lighter than PNG (Target ~900KB - 1MB)
+      const imgData = canvas.toDataURL("image/jpeg", 0.98);
       const pdf = new jsPDF({
         orientation: "landscape",
         unit: "mm",
@@ -328,9 +328,9 @@ const Certificate = () => {
               <div className="absolute inset-4 border-[1px] border-[#35008B] opacity-20" />
               <div className="absolute inset-6 border-[2px] border-[#fbbf24] opacity-30" />
 
-              {/* Header */}
-              <div className="w-full flex justify-between items-start mb-2 relative z-10">
-                <img src={logo} alt="Logo" className="h-8 object-contain" />
+              {/* Header - Absolute Positioned to prevent layout shifts */}
+              <div className="absolute top-10 left-10 z-20">
+                <img src={logo} alt="Logo" className="h-16 object-contain" />
               </div>
 
               {/* Body */}
