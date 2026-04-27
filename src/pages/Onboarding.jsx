@@ -174,6 +174,22 @@ function Onboarding() {
           className="rounded-[28px] border border-slate-200 bg-white p-8 shadow-sm"
         >
           <div className="grid gap-6 md:grid-cols-2">
+            <div className="md:col-span-2">
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Full Name
+              </label>
+              <input
+                type="text"
+                name="fullName"
+                value={formData.fullName}
+                onChange={handleChange}
+                placeholder="How should we refer to you?"
+                className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-[var(--color-primary)]"
+                required
+              />
+              <p className="mt-2 text-xs text-slate-500 italic">This name is used for resume tailoring. Your profile name can be managed in Settings.</p>
+            </div>
+
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 Education
